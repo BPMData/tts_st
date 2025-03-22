@@ -37,4 +37,4 @@ This application can be deployed to Streamlit Cloud or any other platform that s
 
 ## Credits
 
-Created for a high school computer science teacher to help a student who is legally blind and relies on text-to-speech tools.
+Created by a high school computer science teacher to help students with vision impairments.
