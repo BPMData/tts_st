@@ -7,7 +7,7 @@ import litellm
 litell.set_verbose=True
 
 
-def look_at_photos(base64_image, upload=False):
+def look_at_photo(base64_image, upload=False):
     model = "gpt-4o-mini"if not upload else "gpt-4o"
     headers = {
         "Content-Type": "application/json",
