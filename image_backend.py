@@ -7,22 +7,28 @@ import litellm
 litell.set_verbose=True
 
 
-def look_at_pix(base64_image):
+def look_at_photos(base64_image, upload=False):
+    model = "gpt-4o-mini"if not upload else "gpt-4o"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"
     }
     payload = {
-        "model": "gpt-4o",
+        "model": model,
         "messages": [
+             {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": """You are being tasked with helping generate audio descriptions of photographs for the benefit of vision-impaired and blind individuals. Your role is to use machine vision to describe photographs or images you are passed as accurately as possible, thoroughly, helpfully, and yet succinctly given that the vision-impaired individuals using this tool will have to listen to whatever you write out loud. You are going to list only what you see, without commentary. For example, a good beginning of your response would be to immediately start describing what you see. A BAD beginning of your response would be: "Certainly, let me describe this image for you!", or "Okay. Well, what I can see in this image is...""""
+                    },           
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        # "text": "What’s in this image?"
-                        "text": """You are being tasked with helping generate audio descriptions of photographs for the benefit of vision-impaired and blind individuals. Your role is to use machine vision to describe photographs or images you are passed as accurately as possible, thoroughly, helpfully, and yet succinctly given that the vision-impaired individuals using this tool will have to listen to whatever you write out loud. You are going to list only what you see, without commentary. For example, a good beginning of your response would be to immediately start describing what you see. A BAD beginning of your response would be: "Certainly, let me describe this image for you!", or "Okay. Well, what I can see in this image is..."
-What do you see in this photograph or image?"""
+                        "text": """What do you see in this photograph or image? Describe in sufficient detail for a vision-impaired individual, but recognize your output will be converted into speech, so be mindful of the time it takes to read text out loud and avoid unnecessary verbosity."""
                     },
                     {
                         "type": "image_url",
