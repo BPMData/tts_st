@@ -203,6 +203,9 @@ with col2:
         )
     elif st.session_state.conversion_complete and st.session_state.audio_data is None: #Handle API failure case
         st.error("Audio generation failed. Please try again.")
+    pix_interface = st.expander("I'd rather generate an audio description of a photograph I'll take now.")
+    upload_interface = st.expander("I'd rather generate an audio description of an image I'll upload.")
+    
 # Footer
 st.markdown("---")
 st.caption("This application is designed to be fully accessible. If you encounter any issues, please contact your teacher.")
