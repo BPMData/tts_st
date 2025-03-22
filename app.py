@@ -7,6 +7,7 @@ import io
 from pathlib import Path
 import PyPDF2
 import docx
+from image_backend import look_at_photo
 
 # Set page configuration
 st.set_page_config(
@@ -203,8 +204,32 @@ with col2:
         )
     elif st.session_state.conversion_complete and st.session_state.audio_data is None: #Handle API failure case
         st.error("Audio generation failed. Please try again.")
+### EDITS TO ENABLE IMAGE PROCESSING CAPABILITIES BEGIN HERE
     pix_interface = st.expander("I'd rather generate an audio description of a photograph I'll take now.")
-    upload_interface = st.expander("I'd rather generate an audio description of an image I'll upload.")
+    upload_interface = st.expander2("I'd rather generate an audio description of an image I'll upload.")
+    def clicked():
+    st.session_state.you_clicked_it = True
+    st.session_state.image_used = False
+
+pix = pix_interface.camera_input(label="Please take a picture to generate a spoken description of what is in the photo.",
+                help="Uses your phone camera (mobile) or webcam (desktop).", key="photo_data", on_change=clicked)
+
+if pix is not None:
+    st.warning("To take another photo, press 'Clear photo' above.")
+
+if st.session_state.get("photo_data", None) is None:
+    st.session_state.vision_used = False
+
+gpt_vision = None
+bytes_data = ""
+if pix is not None and st.session_state.get("vision_used", False) is False:
+    # To read image file buffer as bytes:
+    bytes_data = pix.getvalue()
+    base64_image = encode_image_from_bytes(bytes_data)
+
+    if base64_image:
+        gpt_vision = look_at_pix(base64_image)
+        st.session_state.vision_used = True
     
 # Footer
 st.markdown("---")
