@@ -221,7 +221,11 @@ with col2:
 
 
     with st.expander("Upload Image"):
-        uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], key=st.session_state.uploader_key)
+        uploaded_image = st.file_uploader(
+    "Upload an image",
+    type=["jpg", "jpeg", "png", "gif", "bmp", "webp"],  # Added gif, bmp, webp
+    key=st.session_state.uploader_key
+)
         if uploaded_image and uploaded_image != st.session_state.uploaded_image:
             st.session_state.uploaded_image = uploaded_image
             st.session_state.captured_image = None  # Clear captured image
