@@ -40,8 +40,6 @@ VOICE_OPTIONS = {
 # API key (from Streamlit Secrets)
 if "LEMONFOX_API_KEY" in st.secrets:
     LEMONFOX_API_KEY = st.secrets["LEMONFOX_API_KEY"]
-else:
-    LEMONFOX_API_KEY = "MBqG3Bs0zvWAX9DfaR5wtTSFxyskUDQo"  # Fallback
 
 # Function to extract text from PDF
 def extract_text_from_pdf(file):
