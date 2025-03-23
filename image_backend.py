@@ -1,34 +1,36 @@
 import openai
 import base64
 import requests
-from io import BytesIO
 import litellm
+import streamlit as st  # Import streamlit
 
-litell.set_verbose=True
+litellm.set_verbose = True
 
 
 def look_at_photo(base64_image, upload=False):
-    model = "gpt-4o-mini"if not upload else "gpt-4o"
+    model = "gpt-4o" if upload else "gpt-4o-mini"  # Correct model selection
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"
+        "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"  # Use st.secrets
     }
     payload = {
         "model": model,
         "messages": [
-             {
+            {
                 "role": "system",
                 "content": [
                     {
                         "type": "text",
-                        "text": """You are being tasked with helping generate audio descriptions of photographs for the benefit of vision-impaired and blind individuals. Your role is to use machine vision to describe photographs or images you are passed as accurately as possible, thoroughly, helpfully, and yet succinctly given that the vision-impaired individuals using this tool will have to listen to whatever you write out loud. You are going to list only what you see, without commentary. For example, a good beginning of your response would be to immediately start describing what you see. A BAD beginning of your response would be: "Certainly, let me describe this image for you!", or "Okay. Well, what I can see in this image is...""""
-                    },           
+                        "text": """You are tasked with generating audio descriptions of photographs for vision-impaired individuals. Describe images accurately, thoroughly, yet succinctly.  List only what you see, without commentary.  Avoid phrases like "Certainly, let me describe this image for you!"."""
+                    },
+                ]
+            },
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": """What do you see in this photograph or image? Describe in sufficient detail for a vision-impaired individual, but recognize your output will be converted into speech, so be mindful of the time it takes to read text out loud and avoid unnecessary verbosity."""
+                        "text": """Describe this photograph or image in sufficient detail for a vision-impaired individual.  Be mindful of the time it takes to read text aloud and avoid unnecessary verbosity."""
                     },
                     {
                         "type": "image_url",
@@ -39,14 +41,12 @@ def look_at_photo(base64_image, upload=False):
                 ]
             }
         ],
-        "max_tokens": 4,000
+        "max_tokens": 4000
     }
 
-    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-    return response.json()['choices'][0]['message']['content']
     try:
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()  # Check if the request was successful
+        response.raise_for_status()
         response_data = response.json()
         if 'choices' in response_data:
             return response_data['choices'][0]['message']['content']
@@ -59,3 +59,11 @@ def look_at_photo(base64_image, upload=False):
     except ValueError as e:
         print(f"Invalid response: {e}")
         return "An unexpected response was received from the API."
+    except Exception as e: #Catch any other errors
+        print(f"An unexpected error occurred: {e}")
+        return "An unexpected error occurred."
+
+
+def encode_image_from_bytes(image_bytes):
+    """Encodes image bytes to base64."""
+    return base64.b64encode(image_bytes).decode('utf-8')
