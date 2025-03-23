@@ -214,6 +214,7 @@ with col2:
                 st.session_state.text_input = st.session_state.image_description
                 st.session_state.uploaded_file_text = ""  # Clear any file text
                 st.session_state.input_source = "Typed text"
+                st.rerun()
 
 
     with st.expander("Upload Image"):
@@ -229,6 +230,7 @@ with col2:
                 st.session_state.text_input = st.session_state.image_description
                 st.session_state.uploaded_file_text = ""  # Clear any file text
                 st.session_state.input_source = "Typed text"
+                st.rerun()
 
 # Footer
 st.markdown("---")
