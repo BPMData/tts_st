@@ -94,6 +94,8 @@ if "image_description" not in st.session_state:
     st.session_state.image_description = ""
 if "captured_image" not in st.session_state:
     st.session_state.captured_image = None  # Initialize to None
+if 'camera_key' not in st.session_state:
+    st.session_state.camera_key = "camera_1"
 if "uploaded_image" not in st.session_state:
     st.session_state.uploaded_image = None  # Initialize to None
 if 'uploaded_file_name' not in st.session_state:
@@ -200,7 +202,7 @@ with col2:
 
     # --- Image Handling in col2 (Separate Expanders) ---
     with st.expander("Capture Photo"):
-        captured_image = st.camera_input("Take a picture")
+        captured_image = st.camera_input("Take a picture", key=st.session_state.camera_key))
         if captured_image and captured_image != st.session_state.captured_image:
             st.session_state.captured_image = captured_image
             st.session_state.uploaded_image = None  # Clear uploaded image
@@ -220,6 +222,7 @@ with col2:
         if uploaded_image and uploaded_image != st.session_state.uploaded_image:
             st.session_state.uploaded_image = uploaded_image
             st.session_state.captured_image = None  # Clear captured image
+            st.session_state.camera_key = "camera_2" if st.session_state.camera_key == "camera_1" else "camera_1"
             st.image(uploaded_image)  # Display immediately
             bytes_data = uploaded_image.getvalue()
             base64_image = encode_image_from_bytes(bytes_data)
