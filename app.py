@@ -100,6 +100,8 @@ if "uploaded_image" not in st.session_state:
     st.session_state.uploaded_image = None  # Initialize to None
 if 'uploaded_file_name' not in st.session_state:
     st.session_state.uploaded_file_name = None
+if 'uploader_key' not in st.session_state:
+    st.session_state.uploader_key = "uploader_1"
 
 
 # --- Main App Layout ---
@@ -204,6 +206,7 @@ with col2:
     with st.expander("Capture Photo"):
         captured_image = st.camera_input("Take a picture", key=st.session_state.camera_key)
         if captured_image and captured_image != st.session_state.captured_image:
+            st.session_state.uploader_key = "uploader_2" if st.session_state.uploader_key == "uploader_1" else "uploader_1"
             st.session_state.captured_image = captured_image
             st.session_state.uploaded_image = None  # Clear uploaded image
             st.image(captured_image)  # Display immediately
@@ -218,7 +221,7 @@ with col2:
 
 
     with st.expander("Upload Image"):
-        uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+        uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], key=st.session_state.uploader_key)
         if uploaded_image and uploaded_image != st.session_state.uploaded_image:
             st.session_state.uploaded_image = uploaded_image
             st.session_state.captured_image = None  # Clear captured image
