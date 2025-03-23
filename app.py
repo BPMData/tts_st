@@ -202,7 +202,7 @@ with col2:
 
     # --- Image Handling in col2 (Separate Expanders) ---
     with st.expander("Capture Photo"):
-        captured_image = st.camera_input("Take a picture", key=st.session_state.camera_key))
+        captured_image = st.camera_input("Take a picture", key=st.session_state.camera_key)
         if captured_image and captured_image != st.session_state.captured_image:
             st.session_state.captured_image = captured_image
             st.session_state.uploaded_image = None  # Clear uploaded image
