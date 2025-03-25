@@ -29,8 +29,7 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Adding ONLY video hide + button position) ---
-# Starting from the code you provided as working (except for initial video preview)
+# --- Custom CSS Injection (Working version MINUS video hide) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -44,29 +43,22 @@ hide_streamlit_style = """
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
-                /* --- Added for layering --- */
-                position: relative;
-                z-index: 10;
                 box-sizing: border-box;
             }
             div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
-
-            /* --- ADDED rule to hide video --- */
-            div[data-testid="stCameraInput"] video {
-                display: none !important;
-            }
-            /* --- End of ADDED rule --- */
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
                 border: none; color: white; padding: 40px 40px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 40px; margin: 15px 2px; cursor: pointer;
-                border-radius: 12px; width: 70vw;
-                min-height: 15vh; /* Keep min-height from working version */
-                line-height: 1.2; box-sizing: border-box;
-                display: flex !important; align-items: center !important; justify-content: center !important;
+                border-radius: 12px; width: 70vw; /* Keep width */
+                min-height: 15vh; /* Use min-height for flexibility */
+                line-height: 1.2; box-sizing: border-box; /* Ensure padding included */
+                display: flex !important; /* Use flex to center content vertically */
+                align-items: center !important;
+                justify-content: center !important;
             }
             /* Make Start Over button taller to match Play button */
             div[data-testid="stButton"] > button[kind="secondary"] {
@@ -89,7 +81,7 @@ hide_streamlit_style = """
              }
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] {
+             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
                  align-items: center !important; display: flex !important;
                  flex-direction: column !important; justify-content: center !important;
                  width: 100% !important;
@@ -103,12 +95,11 @@ hide_streamlit_style = """
                   margin-bottom: 10px;
               }
 
-
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- Helper Functions (TTS and Analysis - unchanged from your working version) ---
+# --- Helper Functions (TTS and Analysis - unchanged) ---
 def text_to_speech_simple(text, voice_key):
     if not LEMONFOX_API_KEY: return None, "TTS API Key missing."
     if not text: return None, "No text to speak."
@@ -133,7 +124,7 @@ def perform_image_analysis_simple(image_bytes):
         else: return None, f"Analysis failed: {description or 'No response.'}"
     except Exception as e: return None, f"Analysis Error: {e}"
 
-# --- Initialize Session State (unchanged from your working version) ---
+# --- Initialize Session State (unchanged) ---
 if "photo_buffer" not in st.session_state: st.session_state.photo_buffer = None
 if "processing" not in st.session_state: st.session_state.processing = False
 if "audio_data" not in st.session_state: st.session_state.audio_data = None
@@ -141,7 +132,7 @@ if "error_message" not in st.session_state: st.session_state.error_message = Non
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
 
-# --- Main App Logic (unchanged from your working version) ---
+# --- Main App Logic (unchanged) ---
 
 if missing_keys or not BACKEND_LOADED:
     st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
@@ -151,7 +142,10 @@ if missing_keys or not BACKEND_LOADED:
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
     captured_image_buffer = st.camera_input(
-        "Tap HUGE button to take photo", key=st.session_state.camera_key, label_visibility="hidden"
+        # Label will be hidden by CSS, but the button within this widget is styled large
+        "Take Photo",
+        key=st.session_state.camera_key,
+        label_visibility="hidden"
         )
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
@@ -184,7 +178,7 @@ elif st.session_state.show_play:
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
 
-        # HTML Component (unchanged from your working version)
+        # HTML Component (unchanged)
         component_html = f"""
         <style>
             .center-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
@@ -219,7 +213,7 @@ elif st.session_state.show_play:
             }} else {{ console.error("Component elements not found for binding!"); }}
         </script>
         """
-        # Render component using height from your working version
+        # Render component (using height=300 from working version)
         st.components.v1.html(component_html, height=300)
 
     else:
@@ -233,7 +227,7 @@ elif st.session_state.show_play:
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Error Display Logic (unchanged from your working version)
+# Error Display Logic (unchanged)
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
     if st.button("Try Again"): # Uses general button styling (should be green)
