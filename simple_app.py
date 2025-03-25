@@ -4,28 +4,24 @@ import base64
 import io
 
 # --- Try importing backend functions ---
-# Assume image_backend.py is in the same directory
-# It should contain: look_at_photo(base64_image, upload=False) and encode_image_from_bytes(image_bytes)
 try:
     from image_backend import look_at_photo, encode_image_from_bytes
     BACKEND_LOADED = True
 except ImportError:
     st.error("FATAL ERROR: image_backend.py not found.")
-    # Define dummy functions if import fails, app won't work but won't crash immediately
     def encode_image_from_bytes(byte_data): return None
     def look_at_photo(base64_image, upload=False): return "Error: Backend not loaded."
     BACKEND_LOADED = False
 
 # --- Configuration & Constants ---
-st.set_page_config(layout="wide") # Use wide layout
+st.set_page_config(layout="wide")
 
 LEMONFOX_API_URL = "https://api.lemonfox.ai/v1/audio/speech"
 TTS_MODEL = "tts-1"
-# Use a fairly neutral voice, maybe Alloy or Nova? Adjust if needed.
 DEFAULT_VOICE = "alloy"
-MAX_CHAR_LIMIT = 4000 # Limit for description length for TTS
+MAX_CHAR_LIMIT = 4000
 
-# --- API Keys Check (Essential) ---
+# --- API Keys Check ---
 missing_keys = []
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY")
 LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
@@ -33,7 +29,7 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Final Version) ---
+# --- Custom CSS Injection (Hover fix should be okay) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -43,124 +39,79 @@ hide_streamlit_style = """
 
             /* Make Camera Input Button Huge */
             div[data-testid="stCameraInput"] > div > button {
-                background-color: #008CBA; /* Blue */
-                border: none; color: white; padding: 50px 50px;
+                background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
-                position: relative; /* Ensure it's layerable */
-                z-index: 10; /* Keep button on top */
-                box-sizing: border-box;
             }
-            /* Camera Button Hover */
-            div[data-testid="stCameraInput"] > div > button:hover {
-                 color: white !important; /* Keep text white */
-                 opacity: 0.9;
-            }
-            /* Hide the text label above camera button */
+            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
-
-            /* Hide the live video preview within camera input */
-            div[data-testid="stCameraInput"] video {
-                display: none !important; /* Force hide the video element */
-            }
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
                 border: none; color: white; padding: 40px 40px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 40px; margin: 15px 2px; cursor: pointer;
-                border-radius: 12px; width: 70vw; /* Keep width consistent */
+                border-radius: 12px; width: 70vw; /* Keep width */
                 min-height: 15vh; /* Use min-height for flexibility */
-                line-height: 1.2; box-sizing: border-box;
-                display: flex !important; align-items: center !important; justify-content: center !important;
+                line-height: 1.2; box-sizing: border-box; /* Ensure padding included */
+                display: flex !important; /* Use flex to center content vertically */
+                align-items: center !important;
+                justify-content: center !important;
             }
-            /* HOVER state for standard Streamlit buttons */
-            div[data-testid="stButton"] > button:hover {
-                 color: white !important; /* Keep text white */
-                 opacity: 0.9;
-            }
-            /* Specific style for Start Over button (Red) */
-             div[data-testid="stButton"] > button[kind="secondary"] {
-                 background-color: #f44336; /* Red */
-                 min-height: 25vh; /* Make Start Over taller like Play */
-                 height: 25vh; /* Explicit height can also work */
-             }
-             /* Hover for secondary/Red button */
-             div[data-testid="stButton"] > button[kind="secondary"]:hover {
-                 background-color: #d32f2f; /* Darker Red */
-                 color: white !important; opacity: 1.0;
-             }
-             /* Style for Try Again button (default green if not secondary) */
-              div[data-testid="stButton"] > button:not([kind="secondary"]) {
-                  background-color: #4CAF50; /* Green */
-              }
-              div[data-testid="stButton"] > button:not([kind="secondary"]):hover {
-                  background-color: #45a049; /* Darker Green */
-              }
+            div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
+            div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f44336; /* Red */ }
+            div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f; color: white !important; opacity: 1.0; }
 
-
-             /* Centering containers */
+             /* Centering */
              .stApp > div:first-child {
                 display: flex; flex-direction: column; align-items: center;
                 justify-content: center; min-height: 95vh;
              }
-             /* Target containers holding our main elements for centering */
+             /* Target containers for centering content */
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
              div[data-streamlit-component-button-audio] { /* Target our component wrapper */
-                 align-items: center !important; display: flex !important;
-                 flex-direction: column !important; justify-content: center !important;
-                 width: 100% !important;
+                 align-items: center !important;
+                 display: flex !important;
+                 flex-direction: column !important;
+                 justify-content: center !important;
+                 width: 100% !important; /* Ensure component takes space */
              }
-             /* Add consistent gap AFTER the HTML component */
-             div[data-streamlit-component-button-audio] {
-                  margin-bottom: 20px; /* Add space below the component */
+             /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
+             div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
+                  margin-top: 20px; /* Space before the Start Over button */
              }
-             /* Remove extra margin potentially added by Streamlit around buttons */
-              div[data-testid="stButton"] {
-                  margin-bottom: 10px; /* Reduce bottom margin */
-              }
 
 
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- Helper Functions (TTS and Analysis) ---
+# --- Helper Functions (TTS and Analysis - unchanged) ---
 def text_to_speech_simple(text, voice_key):
-    """Simplified TTS call for this app."""
     if not LEMONFOX_API_KEY: return None, "TTS API Key missing."
     if not text: return None, "No text to speak."
     if len(text) > MAX_CHAR_LIMIT: return None, f"Text too long ({len(text)} > {MAX_CHAR_LIMIT})."
-
     headers = {"Authorization": f"Bearer {LEMONFOX_API_KEY}", "Content-Type": "application/json"}
     data = {"model": TTS_MODEL, "input": text, "voice": voice_key, "response_format": "mp3"}
-
     try:
         response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=45)
         response.raise_for_status()
-        return response.content, None # Return audio data, no error
-    except Exception as e:
-        return None, f"TTS Error: {e}" # Return None, error message
+        return response.content, None
+    except Exception as e: return None, f"TTS Error: {e}"
 
 def perform_image_analysis_simple(image_bytes):
-    """Simplified image analysis call."""
     if not OPENAI_API_KEY: return None, "Analysis API Key missing."
     if not image_bytes: return None, "No image data."
-
     try:
         base64_image = encode_image_from_bytes(image_bytes)
         if not base64_image: return None, "Image encoding failed."
-        # Force gpt-4o-mini for speed in this simple app, upload=False
         description = look_at_photo(base64_image, upload=False)
-
         if description and "error" not in description.lower() and "fail" not in description.lower():
-            return description, None # Return description, no error
-        else:
-            return None, f"Analysis failed: {description or 'No response.'}" # Return None, error message
-    except Exception as e:
-        return None, f"Analysis Error: {e}" # Return None, error message
+            return description, None
+        else: return None, f"Analysis failed: {description or 'No response.'}"
+    except Exception as e: return None, f"Analysis Error: {e}"
 
 # --- Initialize Session State ---
 if "photo_buffer" not in st.session_state: st.session_state.photo_buffer = None
@@ -168,84 +119,76 @@ if "processing" not in st.session_state: st.session_state.processing = False
 if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
-if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial" # Key for resetting camera
+if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
 
 # --- Main App Logic ---
 
-# Check for API keys first
 if missing_keys or not BACKEND_LOADED:
-    st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}. Please configure secrets.")
-    st.stop() # Halt execution
+    st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
+    st.stop()
 
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
-    st.session_state.error_message = None # Clear previous errors
+    st.session_state.error_message = None
     captured_image_buffer = st.camera_input(
-        "Tap HUGE button to take photo", # Label won't show due to CSS, but good practice
-        key=st.session_state.camera_key,
-        label_visibility="hidden" # Attempt to hide label explicitly
+        "Tap HUGE button to take photo", key=st.session_state.camera_key, label_visibility="hidden"
         )
-
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
         st.session_state.processing = True
-        st.rerun() # Go to processing state
+        st.rerun()
 
 # State 2: Processing photo
 elif st.session_state.processing:
-    with st.spinner("Thinking..."): # Simple feedback
+    with st.spinner("Thinking..."):
         description, analysis_error = perform_image_analysis_simple(st.session_state.photo_buffer)
-        st.session_state.photo_buffer = None # Clear buffer
-
+        st.session_state.photo_buffer = None
         if analysis_error:
             st.session_state.error_message = analysis_error
-            st.session_state.processing = False
-            st.session_state.show_play = False # Go back to camera state on error
+            st.session_state.processing = False; st.session_state.show_play = False
             st.rerun()
         else:
             audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
             if tts_error:
                 st.session_state.error_message = tts_error
-                st.session_state.processing = False
-                st.session_state.show_play = False # Go back to camera state on error
+                st.session_state.processing = False; st.session_state.show_play = False
                 st.rerun()
             else:
-                # SUCCESS! Store audio, switch state
                 st.session_state.audio_data = audio_data
-                st.session_state.processing = False
-                st.session_state.show_play = True
+                st.session_state.processing = False; st.session_state.show_play = True
                 st.rerun()
 
 # State 3: Show Play button (using HTML Component) and Audio
 elif st.session_state.show_play:
     if st.session_state.audio_data:
-        # 1. Encode audio data to base64
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
 
-        # 2. Define HTML/CSS/JS for the component
+        # --- UPDATED HTML Component ---
         component_html = f"""
         <style>
-            /* Container for centering */
             .center-container {{
                 display: flex; flex-direction: column; align-items: center; width: 100%;
             }}
-            /* Style for the custom play button */
+            /* Style for the custom play button - MAKE IT BIG AGAIN */
             #playButton {{
                 background-color: #4CAF50; /* Green */
                 border: none; color: white;
                 text-align: center; text-decoration: none; display: block;
-                font-size: 40px; margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; /* Width like other buttons */
-                height: 25vh; /* Height like start over button */
-                line-height: 25vh; /* Vertically center text */
-                box-sizing: border-box; padding: 0;
+                font-size: 40px; /* Large font */
+                margin: 15px auto; cursor: pointer; border-radius: 12px;
+                width: 70vw; /* Set desired width */
+                height: 25vh; /* Set desired height */
+                line-height: 25vh; /* Vertically center text (matches height) */
+                box-sizing: border-box;
+                padding: 0; /* Remove padding if line-height centers */
             }}
             #playButton:hover {{ color: white !important; background-color: #45a049; }}
-            /* Container for audio player */
-             #audioPlayerContainer {{
+
+            #audioPlayerContainer {{
                  text-align: center;
-                 margin-top: 15px; /* Space below play button */
+                 margin-top: 15px; /* Slightly reduced margin */
+                 margin-bottom: 15px; /* Add margin below player */
                  width: 80%;
              }}
              #audioPlayer {{ width: 100%; }}
@@ -259,14 +202,14 @@ elif st.session_state.show_play:
         <script>
             const playButton = document.getElementById('playButton');
             const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound');
+            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
 
             if (playButton && audioPlayer && !isBound) {{
                 playButton.addEventListener('click', function() {{
                     console.log("Play button clicked!");
                     audioPlayer.play().catch(e => console.error("Audio play failed:", e));
                 }});
-                document.body.setAttribute('data-button-bound', 'true');
+                document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
                 console.log("Event listener bound.");
             }} else if (isBound) {{
                  console.log("Event listener already bound.");
@@ -275,30 +218,27 @@ elif st.session_state.show_play:
             }}
         </script>
         """
-
-        # 3. Render the component with adjusted height
-        # Height should accommodate button (~25vh) + player (~50px) + margins (~30px)
-        # Let's estimate around 350px total should be safe
-        st.components.v1.html(component_html, height=350) # Adjust if gap reappears/content cut off
+        # --- RENDER COMPONENT with adjusted height ---
+        # Calculate a potential height: button height (25vh) + audio player height (~50px) + margins (~30px)
+        # Convert vh to approx pixels if needed or just estimate. Let's try a smaller fixed value first.
+        st.components.v1.html(component_html, height=300) # TRY reducing height
 
     else:
-        st.error("Error: Audio data is missing.") # Fallback
+        st.error("Error: Audio data is missing.")
 
-    # Keep the standard Streamlit button for "Start Over" (styled large by CSS)
+    # "Start Over" Button (uses general CSS for size)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
-        # Reset state variables to initial values
+        # Reset logic remains the same...
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
         st.session_state.show_play = False
-        # Important: Change camera key to force reset
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Display errors if they occurred in processing
+# Error Display Logic (unchanged)
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
-    # Add a button to acknowledge error and reset
-    if st.button("Try Again"): # Uses general button style (should be green)
+    if st.button("Try Again"):
          st.session_state.error_message = None
-         st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}" # Reset camera on error ack
+         st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
