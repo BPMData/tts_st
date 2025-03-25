@@ -125,56 +125,71 @@ def text_to_speech(text, voice_key):
         st.error(f"An unexpected error occurred during TTS conversion: {e}")
         return None
 
-# --- Helper Function: process_and_speak_image (modified slightly for clarity) ---
+# --- Helper Function: process_and_speak_image (WITH DEBUGGING) ---
 def process_and_speak_image(image_bytes, voice_key, is_upload):
     """Analyzes image using OpenAI, checks length, converts description to Lemonfox speech."""
-    description = None # Initialize description
+    st.write("--- DEBUG: Entered process_and_speak_image ---") # DEBUG
+    description = None
 
     # --- Step 1: Analyze Image ---
-    if not OPENAI_API_KEY: # Use the globally checked key
+    if not OPENAI_API_KEY:
          st.error("Cannot analyze image: OpenAI API Key is missing.")
-         return # Stop processing if key is missing
+         st.write("--- DEBUG: OpenAI Key MISSING ---") # DEBUG
+         return
 
     try:
+        st.write(f"--- DEBUG: Preparing to analyze image (upload={is_upload}). Bytes length: {len(image_bytes)} ---") # DEBUG
         with st.spinner("🖼️ Analyzing image via OpenAI API..."):
             base64_image = encode_image_from_bytes(image_bytes)
-            # look_at_photo uses OPENAI_API_KEY internally via st.secrets
+            st.write("--- DEBUG: Base64 encoding complete. Calling look_at_photo... ---") # DEBUG
+            # Assuming look_at_photo uses st.secrets['OPENAI_API_KEY'] internally
             description = look_at_photo(base64_image, upload=is_upload)
+            st.write(f"--- DEBUG: look_at_photo returned: {description} ---") # DEBUG
 
         # Check if analysis returned a valid description string
         if not description or "error" in description.lower() or "fail" in description.lower():
              st.error(f"Image analysis failed or returned an error: {description}")
+             st.write(f"--- DEBUG: Analysis FAILED or returned error description: '{description}' ---") # DEBUG
              description = None # Ensure description is None if analysis failed
 
     except Exception as e:
         st.error(f"Error during image analysis call: {e}")
-        description = None # Ensure description is None on exception
+        st.write(f"--- DEBUG: EXCEPTION during analysis: {e} ---") # DEBUG
+        description = None
 
     # --- Step 2: Update State and Convert to Speech (if analysis succeeded) ---
     if description:
+        st.write("--- DEBUG: Analysis SUCCESSFUL. Preparing to update state and call TTS. ---") # DEBUG
         st.session_state.image_description = description
-        st.session_state.text_input = description # Update text area
-        st.session_state.uploaded_file_text = "" # Clear file text
+        st.session_state.text_input = description # Update text area state value
+        st.session_state.uploaded_file_text = ""
         st.session_state.active_source_info = "Using text from analyzed image"
-        st.session_state.conversion_complete = False # Reset audio state
+        st.session_state.conversion_complete = False
+        st.write(f"--- DEBUG: Set st.session_state.text_input to: '{st.session_state.text_input}' ---") # DEBUG
 
         # --- Step 3: Convert Description to Speech ---
-        audio_data = text_to_speech(description, voice_key) # Pass description and voice
+        st.write("--- DEBUG: Calling text_to_speech... ---") # DEBUG
+        audio_data = text_to_speech(description, voice_key)
         if audio_data:
+            st.write("--- DEBUG: text_to_speech returned audio data. ---") # DEBUG
             st.session_state.audio_data = audio_data
             st.session_state.conversion_complete = True
-            # Success message handled by text_to_speech
         else:
-            # Error message handled by text_to_speech
+            st.write("--- DEBUG: text_to_speech returned NO audio data (failed). ---") # DEBUG
             st.session_state.audio_data = None
-            st.session_state.conversion_complete = False # Ensure false on TTS failure
+            st.session_state.conversion_complete = False
     else:
         # If analysis failed or returned None/error string
+        st.write("--- DEBUG: Skipping state update and TTS because description is invalid/None. ---") # DEBUG
         st.warning("Could not generate speech because image analysis failed.")
+        # Let's NOT clear text_input here if analysis failed, maybe previous text is useful?
+        # st.session_state.text_input = "" # Reconsider clearing this
         st.session_state.image_description = ""
-        st.session_state.text_input = "" # Clear text area if analysis failed
-        st.session_state.active_source_info = DEFAULT_SOURCE_INFO # Reset source info
+        # Only reset source info if there isn't already text typed manually
+        if not st.session_state.text_input and not st.session_state.uploaded_file_text:
+             st.session_state.active_source_info = DEFAULT_SOURCE_INFO
 
+    st.write("--- DEBUG: Exiting process_and_speak_image ---") # DEBUG
 
 # --- Initialize Session State (Unchanged) ---
 default_values = {
