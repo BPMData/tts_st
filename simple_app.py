@@ -29,76 +29,69 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Resized Camera Button) ---
+# --- Custom CSS Injection (Constrain Video Preview Size) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
-            /* Reduce default padding to use more space */
             .stApp > div:first-child > div:first-child > div:first-child { padding: 1rem 1rem 0 1rem; }
-            .stApp { padding: 0rem; } /* Remove overall padding */
+            .stApp { padding: 0rem; }
 
 
-            /* --- MODIFIED Camera Input Button --- */
+            /* --- Camera Input Button (Slightly Larger) --- */
             div[data-testid="stCameraInput"] > div > button {
-                background-color: #008CBA; /* Blue */
-                border: none; color: white;
+                background-color: #008CBA; border: none; color: white;
                 text-align: center; text-decoration: none; display: inline-block;
-                font-size: 24px; /* Larger than default, but not huge */
-                margin: 20px 2px; cursor: pointer; border-radius: 10px;
-                width: 60vw; /* Take significant width */
-                max-width: 400px; /* But limit max width on larger screens */
-                height: 15vh; /* Taller than default */
-                min-height: 80px; /* Ensure minimum height */
-                padding: 15px 20px; /* Adjust padding */
-                line-height: 1.3; /* Adjust line height for text */
-                box-sizing: border-box;
-                /* Center button if its container allows */
-                 display: block;
-                 margin-left: auto;
-                 margin-right: auto;
+                font-size: 24px; margin: 10px 2px 15px 2px; /* Adjusted margin */
+                cursor: pointer; border-radius: 10px;
+                width: 60vw; max-width: 400px;
+                height: 15vh; min-height: 80px;
+                padding: 15px 20px; line-height: 1.3; box-sizing: border-box;
+                 display: block; margin-left: auto; margin-right: auto;
             }
             div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
-             /* Let camera input widget center itself */
+
+            /* --- ADDED: Constrain Video Preview Size --- */
+            div[data-testid="stCameraInput"] video {
+                width: 80%; /* Adjust percentage as needed */
+                max-width: 400px; /* Limit max width */
+                height: auto; /* Maintain aspect ratio */
+                display: block; /* Ensure it behaves like a block for centering */
+                margin-left: auto;
+                margin-right: auto;
+                border-radius: 8px; /* Optional: round corners */
+                margin-top: 5px; /* Add space above video if needed */
+            }
+            /* --- End of ADDED rule --- */
+
+             /* Center the camera widget container */
              div[data-testid="stCameraInput"] {
-                  width: 100%;
-                  display: flex;
-                  justify-content: center;
-                  flex-direction: column;
-                  align-items: center;
+                  width: 100%; display: flex; justify-content: center;
+                  flex-direction: column; align-items: center;
              }
 
 
-            /* General Style for OTHER Action Buttons (Play/Start Over/Try Again) - Keep Large */
-            /* Play Button (Inside Component) - Kept large from previous version */
-             #playButton {{
-                background-color: #4CAF50; border: none; color: white;
-                text-align: center; text-decoration: none; display: block;
+            /* General Style for OTHER Action Buttons (Play/Start Over/Try Again) - Kept Large */
+            #playButton {{ /* Play Button (Inside Component) */
+                background-color: #4CAF50; border: none; color: white; text-align: center; text-decoration: none; display: block;
                 font-size: 40px; margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; height: 25vh; line-height: 25vh;
-                box-sizing: border-box; padding: 0;
+                width: 70vw; height: 25vh; line-height: 25vh; box-sizing: border-box; padding: 0;
             }}
             #playButton:hover {{ color: white !important; background-color: #45a049; }}
 
-            /* Start Over / Try Again Buttons (Streamlit Buttons) - Kept Large */
-            div[data-testid="stButton"] > button {
-                border: none; color: white; padding: 40px 40px;
-                text-align: center; text-decoration: none; display: inline-block;
-                font-size: 40px; margin: 15px 2px; cursor: pointer;
-                border-radius: 12px; width: 70vw;
+            div[data-testid="stButton"] > button { /* Start Over / Try Again Buttons */
+                border: none; color: white; padding: 40px 40px; text-align: center; text-decoration: none; display: inline-block;
+                font-size: 40px; margin: 15px 2px; cursor: pointer; border-radius: 12px; width: 70vw;
                 min-height: 15vh; line-height: 1.2; box-sizing: border-box;
                 display: flex !important; align-items: center !important; justify-content: center !important;
             }
             div[data-testid="stButton"] > button[kind="secondary"] { /* Start Over */
-                 background-color: #f44336 !important; /* Red */
-                 height: 25vh; min-height: 25vh;
+                 background-color: #f44336 !important; height: 25vh; min-height: 25vh;
             }
              div[data-testid="stButton"] > button:not([kind="secondary"]) { /* Try Again */
-                 background-color: #4CAF50 !important; /* Green */
-                 /* Optional: Make Try Again height match Start Over */
-                 /* height: 25vh; min-height: 25vh; */
+                 background-color: #4CAF50 !important; /* Ensure Green */
             }
              /* Hover states for Start Over / Try Again */
             div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
@@ -107,16 +100,9 @@ hide_streamlit_style = """
 
 
              /* Centering structure */
-             .stApp > div:first-child {
-                display: flex; flex-direction: column; align-items: center;
-                justify-content: center; min-height: 95vh;
-             }
-             div[data-testid="stVerticalBlock"],
-             div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] {
-                 align-items: center !important; display: flex !important;
-                 flex-direction: column !important; justify-content: center !important;
-                 width: 100% !important;
+             .stApp > div:first-child { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 95vh; }
+             div[data-testid="stVerticalBlock"], div[data-testid="stVerticalBlock"] > div[data-testid="element-container"], div[data-streamlit-component-button-audio] {
+                 align-items: center !important; display: flex !important; flex-direction: column !important; justify-content: center !important; width: 100% !important;
              }
              div[data-streamlit-component-button-audio] { margin-bottom: 20px; }
              div[data-testid="stButton"] { margin-bottom: 10px; }
@@ -145,7 +131,7 @@ def perform_image_analysis_simple(image_bytes):
         base64_image = encode_image_from_bytes(image_bytes)
         if not base64_image: return None, "Image encoding failed."
         description = look_at_photo(base64_image, upload=False)
-        if description and "error" not in description.lower() and "fail" not in description.lower():
+        if description and "error" not in description.lower() and "fail" in description.lower():
             return description, None
         else: return None, f"Analysis failed: {description or 'No response.'}"
     except Exception as e: return None, f"Analysis Error: {e}"
@@ -167,11 +153,8 @@ if missing_keys or not BACKEND_LOADED:
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
-    # Camera input is the main element, its button is styled by CSS
     captured_image_buffer = st.camera_input(
-        "Take Photo", # Label text, though hidden by CSS
-        key=st.session_state.camera_key,
-        label_visibility="hidden" # Keep label hidden
+        "Take Photo", key=st.session_state.camera_key, label_visibility="hidden"
         )
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
@@ -202,8 +185,7 @@ elif st.session_state.show_play:
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
         # HTML Component (unchanged)
         component_html = f"""
-        <style>
-            /* Component-internal styles remain the same */
+        <style> /* Component-internal styles */
             .center-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
             #playButton {{ /* Kept Large */
                 background-color: #4CAF50; border: none; color: white; text-align: center; text-decoration: none; display: block;
