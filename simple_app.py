@@ -29,7 +29,8 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Hover fix should be okay) ---
+# --- Custom CSS Injection (Adding ONLY video hide + button position) ---
+# Starting from the code you provided as working (except for initial video preview)
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -43,52 +44,71 @@ hide_streamlit_style = """
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
+                /* --- Added for layering --- */
+                position: relative;
+                z-index: 10;
+                box-sizing: border-box;
             }
             div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
+
+            /* --- ADDED rule to hide video --- */
+            div[data-testid="stCameraInput"] video {
+                display: none !important;
+            }
+            /* --- End of ADDED rule --- */
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
                 border: none; color: white; padding: 40px 40px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 40px; margin: 15px 2px; cursor: pointer;
-                border-radius: 12px; width: 70vw; /* Keep width */
-                min-height: 15vh; /* Use min-height for flexibility */
-                line-height: 1.2; box-sizing: border-box; /* Ensure padding included */
-                display: flex !important; /* Use flex to center content vertically */
-                align-items: center !important;
-                justify-content: center !important;
+                border-radius: 12px; width: 70vw;
+                min-height: 15vh; /* Keep min-height from working version */
+                line-height: 1.2; box-sizing: border-box;
+                display: flex !important; align-items: center !important; justify-content: center !important;
             }
+            /* Make Start Over button taller to match Play button */
+            div[data-testid="stButton"] > button[kind="secondary"] {
+                 background-color: #f44336; /* Red */
+                 height: 25vh; /* Match play button height */
+                 min-height: 25vh; /* Ensure it takes height */
+            }
+            /* Hover states */
             div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
-            div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f44336; /* Red */ }
             div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f; color: white !important; opacity: 1.0; }
+            /* Ensure Try Again button gets a background if needed */
+            div[data-testid="stButton"] > button:not([kind="secondary"]) { background-color: #4CAF50; /* Green */ }
+            div[data-testid="stButton"] > button:not([kind="secondary"]):hover { background-color: #45a049; }
+
 
              /* Centering */
              .stApp > div:first-child {
                 display: flex; flex-direction: column; align-items: center;
                 justify-content: center; min-height: 95vh;
              }
-             /* Target containers for centering content */
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
-                 align-items: center !important;
-                 display: flex !important;
-                 flex-direction: column !important;
-                 justify-content: center !important;
-                 width: 100% !important; /* Ensure component takes space */
+             div[data-streamlit-component-button-audio] {
+                 align-items: center !important; display: flex !important;
+                 flex-direction: column !important; justify-content: center !important;
+                 width: 100% !important;
              }
-             /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
-             div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
-                  margin-top: 20px; /* Space before the Start Over button */
+             /* Gap AFTER the HTML component */
+             div[data-streamlit-component-button-audio] {
+                  margin-bottom: 20px; /* Space below the component */
              }
+             /* Reduce default bottom margin of button containers */
+              div[data-testid="stButton"] {
+                  margin-bottom: 10px;
+              }
 
 
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- Helper Functions (TTS and Analysis - unchanged) ---
+# --- Helper Functions (TTS and Analysis - unchanged from your working version) ---
 def text_to_speech_simple(text, voice_key):
     if not LEMONFOX_API_KEY: return None, "TTS API Key missing."
     if not text: return None, "No text to speak."
@@ -113,7 +133,7 @@ def perform_image_analysis_simple(image_bytes):
         else: return None, f"Analysis failed: {description or 'No response.'}"
     except Exception as e: return None, f"Analysis Error: {e}"
 
-# --- Initialize Session State ---
+# --- Initialize Session State (unchanged from your working version) ---
 if "photo_buffer" not in st.session_state: st.session_state.photo_buffer = None
 if "processing" not in st.session_state: st.session_state.processing = False
 if "audio_data" not in st.session_state: st.session_state.audio_data = None
@@ -121,7 +141,7 @@ if "error_message" not in st.session_state: st.session_state.error_message = Non
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
 
-# --- Main App Logic ---
+# --- Main App Logic (unchanged from your working version) ---
 
 if missing_keys or not BACKEND_LOADED:
     st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
@@ -164,81 +184,59 @@ elif st.session_state.show_play:
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
 
-        # --- UPDATED HTML Component ---
+        # HTML Component (unchanged from your working version)
         component_html = f"""
         <style>
-            .center-container {{
-                display: flex; flex-direction: column; align-items: center; width: 100%;
-            }}
-            /* Style for the custom play button - MAKE IT BIG AGAIN */
+            .center-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
             #playButton {{
-                background-color: #4CAF50; /* Green */
-                border: none; color: white;
+                background-color: #4CAF50; border: none; color: white;
                 text-align: center; text-decoration: none; display: block;
-                font-size: 40px; /* Large font */
-                margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; /* Set desired width */
-                height: 25vh; /* Set desired height */
-                line-height: 25vh; /* Vertically center text (matches height) */
-                box-sizing: border-box;
-                padding: 0; /* Remove padding if line-height centers */
+                font-size: 40px; margin: 15px auto; cursor: pointer; border-radius: 12px;
+                width: 70vw; height: 25vh; line-height: 25vh;
+                box-sizing: border-box; padding: 0;
             }}
             #playButton:hover {{ color: white !important; background-color: #45a049; }}
-
-            #audioPlayerContainer {{
-                 text-align: center;
-                 margin-top: 15px; /* Slightly reduced margin */
-                 margin-bottom: 15px; /* Add margin below player */
-                 width: 80%;
-             }}
-             #audioPlayer {{ width: 100%; }}
+            #audioPlayerContainer {{ text-align: center; margin-top: 15px; margin-bottom: 15px; width: 80%; }}
+            #audioPlayer {{ width: 100%; }}
         </style>
-
         <div class="center-container" data-streamlit-component-button-audio>
              <div><button id="playButton">▶️ PLAY AUDIO</button></div>
              <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
         </div>
-
         <script>
             const playButton = document.getElementById('playButton');
             const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
-
+            let isBound = document.body.hasAttribute('data-button-bound');
             if (playButton && audioPlayer && !isBound) {{
                 playButton.addEventListener('click', function() {{
                     console.log("Play button clicked!");
                     audioPlayer.play().catch(e => console.error("Audio play failed:", e));
                 }});
-                document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
+                document.body.setAttribute('data-button-bound', 'true');
                 console.log("Event listener bound.");
             }} else if (isBound) {{
                  console.log("Event listener already bound.");
-            }} else {{
-                console.error("Component elements not found for binding!");
-            }}
+            }} else {{ console.error("Component elements not found for binding!"); }}
         </script>
         """
-        # --- RENDER COMPONENT with adjusted height ---
-        # Calculate a potential height: button height (25vh) + audio player height (~50px) + margins (~30px)
-        # Convert vh to approx pixels if needed or just estimate. Let's try a smaller fixed value first.
-        st.components.v1.html(component_html, height=300) # TRY reducing height
+        # Render component using height from your working version
+        st.components.v1.html(component_html, height=300)
 
     else:
         st.error("Error: Audio data is missing.")
 
-    # "Start Over" Button (uses general CSS for size)
+    # "Start Over" Button (uses general CSS + specific height rule)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
-        # Reset logic remains the same...
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
         st.session_state.show_play = False
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Error Display Logic (unchanged)
+# Error Display Logic (unchanged from your working version)
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
-    if st.button("Try Again"):
+    if st.button("Try Again"): # Uses general button styling (should be green)
          st.session_state.error_message = None
          st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
