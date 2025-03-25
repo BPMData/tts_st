@@ -30,7 +30,7 @@ if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
 # --- Custom CSS Injection ---
-# CHANGES MADE HERE: Modified Camera Input CSS, Added Preview Size CSS
+# CHANGES: Removed ALL stCameraInput specific CSS. Adjusted default stButton style.
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -38,40 +38,13 @@ hide_streamlit_style = """
             footer {visibility: hidden;}
             .stApp { padding: 1rem; }
 
-            /* --- MODIFIED: Make Camera Input Button Prominent but NOT Huge --- */
-            div[data-testid="stCameraInput"] > div > button {
-                background-color: #008CBA; border: none; color: white; padding: 20px 30px; /* Reduced padding */
-                text-align: center; text-decoration: none; display: inline-block;
-                font-size: 24px; /* Reduced font size */ margin: 20px 2px; cursor: pointer;
-                border-radius: 12px;
-                width: auto; /* Let button size naturally */
-                height: auto; /* Let button size naturally */
-                /* Removed fixed width/height and large line-height */
-            }
-            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
-            /* Keep label hidden if you don't want Streamlit's default label */
-            /* div[data-testid="stCameraInput"] label { display: none; } */
+            /* --- REMOVED ALL CSS for div[data-testid="stCameraInput"] --- */
+            /* --- Let st.camera_input render with default Streamlit styles --- */
 
 
-            /* --- NEW: Make Camera Input PREVIEW smaller --- */
-            /* Target the container that often holds the video/preview */
-            div[data-testid="stCameraInput"] > div > div {
-                max-width: 450px !important; /* Adjust max width as needed */
-                margin: 10px auto !important; /* Center the preview container */
-                overflow: hidden; /* Hide overflow if necessary */
-            }
-             /* Target the video element directly for finer control */
-            div[data-testid="stCameraInput"] video {
-                 max-height: 300px !important; /* Adjust max height */
-                 width: 100% !important; /* Make video fill its container width */
-                 height: auto !important; /* Maintain aspect ratio */
-                 display: block !important;
-                 margin: 0 auto !important;
-            }
-
-
-            /* General Style for Streamlit Action Buttons (Start Over / Try Again) - Unchanged */
+            /* General Style for Streamlit Action Buttons (TAKE PICTURE / Start Over / Try Again) */
             div[data-testid="stButton"] > button {
+                background-color: #008CBA; /* Default BLUE for primary buttons */
                 border: none; color: white; padding: 40px 40px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 40px; margin: 15px 2px; cursor: pointer;
@@ -82,11 +55,18 @@ hide_streamlit_style = """
                 align-items: center !important;
                 justify-content: center !important;
             }
+            /* Hover for ALL buttons */
             div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
-            div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f44336; /* Red */ }
-            div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f; color: white !important; opacity: 1.0; }
 
-             /* Centering - Unchanged */
+            /* Style for SECONDARY buttons (like Start Over, Try Again) */
+            div[data-testid="stButton"] > button[kind="secondary"] {
+                 background-color: #f44336; /* Red */
+            }
+            div[data-testid="stButton"] > button[kind="secondary"]:hover {
+                 background-color: #d32f2f; color: white !important; opacity: 1.0;
+            }
+
+            /* Centering - Unchanged */
              .stApp > div:first-child {
                  display: flex; flex-direction: column; align-items: center;
                  justify-content: center; min-height: 95vh;
@@ -94,18 +74,16 @@ hide_streamlit_style = """
              /* Target containers for centering content - Unchanged */
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
+             div[data-streamlit-component-button-audio] {
                   align-items: center !important;
                   display: flex !important;
                   flex-direction: column !important;
                   justify-content: center !important;
-                  width: 100% !important; /* Ensure component takes space */
+                  width: 100% !important;
              }
-             /* Add some gap AFTER the component IF NEEDED - Unchanged */
              div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
-                   margin-top: 20px; /* Space before the Start Over button */
+                   margin-top: 20px;
              }
-
 
             </style>
             """
@@ -143,6 +121,8 @@ if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
+# NEW state variable to control camera visibility
+if "show_camera" not in st.session_state: st.session_state.show_camera = False
 
 # --- Main App Logic ---
 
@@ -150,20 +130,36 @@ if missing_keys or not BACKEND_LOADED:
     st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
     st.stop()
 
-# State 1: Ready to take photo
+# State 1: Show Big Button OR Camera Input
 if not st.session_state.show_play and not st.session_state.processing:
-    st.session_state.error_message = None
-    # Changed the label slightly - CSS still hides the default label display location though.
-    # The button itself will likely show a camera icon or default text.
-    captured_image_buffer = st.camera_input(
-        "Take Picture", key=st.session_state.camera_key #, label_visibility="hidden" # You can optionally keep this hidden
-        )
-    if captured_image_buffer is not None:
-        st.session_state.photo_buffer = captured_image_buffer.getvalue()
-        st.session_state.processing = True
-        st.rerun()
+    st.session_state.error_message = None # Clear errors when returning to this state
 
-# State 2: Processing photo
+    # Condition: Show Big Button first
+    if not st.session_state.show_camera:
+        # Use st.button, it will inherit the large blue style from CSS
+        if st.button("📸 TAKE PICTURE", key="show_cam_button"):
+            st.session_state.show_camera = True
+            # We need to reset camera_key here too to ensure camera refreshes
+            # if user comes back to it without taking a picture previously
+            st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}_show"
+            st.rerun()
+
+    # Condition: Show Camera Input after Big Button click
+    else:
+        # Use standard st.camera_input - no custom CSS applied here
+        captured_image_buffer = st.camera_input(
+            " ", # Label can be empty or minimal, often shown above preview
+            key=st.session_state.camera_key,
+            label_visibility="collapsed" # Hide the actual label text area
+            )
+
+        if captured_image_buffer is not None:
+            st.session_state.photo_buffer = captured_image_buffer.getvalue()
+            st.session_state.processing = True
+            st.session_state.show_camera = False # Hide camera again for next round
+            st.rerun()
+
+# State 2: Processing photo (Unchanged)
 elif st.session_state.processing:
     with st.spinner("Thinking..."):
         description, analysis_error = perform_image_analysis_simple(st.session_state.photo_buffer)
@@ -171,101 +167,80 @@ elif st.session_state.processing:
         if analysis_error:
             st.session_state.error_message = analysis_error
             st.session_state.processing = False; st.session_state.show_play = False
+            st.session_state.show_camera = False # Ensure we go back to big button on error
             st.rerun()
         else:
             audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
             if tts_error:
                 st.session_state.error_message = tts_error
                 st.session_state.processing = False; st.session_state.show_play = False
+                st.session_state.show_camera = False # Ensure we go back to big button on error
                 st.rerun()
             else:
                 st.session_state.audio_data = audio_data
                 st.session_state.processing = False; st.session_state.show_play = True
+                # show_camera remains False, which is correct for showing results
                 st.rerun()
 
-# State 3: Show Play button (using HTML Component) and Audio
+# State 3: Show Play button (using HTML Component) and Audio (Unchanged logic, check component height)
 elif st.session_state.show_play:
     if st.session_state.audio_data:
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
 
-        # --- HTML Component (Unchanged from your original, should work fine) ---
+        # --- HTML Component (Same as before) ---
         component_html = f"""
         <style>
-            .center-container {{
-                display: flex; flex-direction: column; align-items: center; width: 100%;
-            }}
-            /* Style for the custom play button - MAKE IT BIG AGAIN */
+            .center-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
             #playButton {{
-                background-color: #4CAF50; /* Green */
-                border: none; color: white;
-                text-align: center; text-decoration: none; display: block;
-                font-size: 40px; /* Large font */
+                background-color: #4CAF50; border: none; color: white;
+                text-align: center; text-decoration: none; display: block; font-size: 40px;
                 margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; /* Set desired width */
-                height: 25vh; /* Set desired height */
-                line-height: 25vh; /* Vertically center text (matches height) */
-                box-sizing: border-box;
-                padding: 0; /* Remove padding if line-height centers */
+                width: 70vw; height: 25vh; line-height: 25vh;
+                box-sizing: border-box; padding: 0;
             }}
             #playButton:hover {{ color: white !important; background-color: #45a049; }}
-
-            #audioPlayerContainer {{
-                 text-align: center;
-                 margin-top: 15px; /* Slightly reduced margin */
-                 margin-bottom: 15px; /* Add margin below player */
-                 width: 80%;
-             }}
-             #audioPlayer {{ width: 100%; }}
+            #audioPlayerContainer {{ text-align: center; margin-top: 15px; margin-bottom: 15px; width: 80%; }}
+            #audioPlayer {{ width: 100%; }}
         </style>
-
         <div class="center-container" data-streamlit-component-button-audio>
              <div><button id="playButton">▶️ PLAY AUDIO</button></div>
              <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
         </div>
-
         <script>
             const playButton = document.getElementById('playButton');
             const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
-
+            let isBound = document.body.hasAttribute('data-button-bound');
             if (playButton && audioPlayer && !isBound) {{
                  playButton.addEventListener('click', function() {{
-                     console.log("Play button clicked!");
                      audioPlayer.play().catch(e => console.error("Audio play failed:", e));
                  }});
-                 document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
-                 console.log("Event listener bound.");
-            }} else if (isBound) {{
-                 console.log("Event listener already bound.");
-            }} else {{
-                 console.error("Component elements not found for binding!");
+                 document.body.setAttribute('data-button-bound', 'true');
             }}
         </script>
         """
-        # --- RENDER COMPONENT ---
-        # You might still need to adjust this height based on the content.
-        # The button is 25vh, player is maybe 50px, plus margins.
-        # Let's try estimating based on vh (e.g., 25vh might be ~200-250px depending on screen) + player + margins
-        st.components.v1.html(component_html, height=350) # Adjusted height slightly
+        # Adjust height if necessary based on Play button + audio player
+        st.components.v1.html(component_html, height=350)
 
     else:
         st.error("Error: Audio data is missing.")
 
-    # "Start Over" Button (uses general CSS for size - Unchanged)
+    # "Start Over" Button (uses general CSS for size, now secondary red style)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
-        # Reset logic remains the same...
+        # Reset logic: Make sure to reset show_camera as well
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
         st.session_state.show_play = False
-        st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
+        st.session_state.show_camera = False # <- Reset to show big button first
+        st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}_reset" # Ensure camera refreshes
         st.rerun()
 
-# Error Display Logic (unchanged)
+# Error Display Logic
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
-    # Make the Try Again button consistent with Start Over if desired
-    if st.button("Try Again"): # Consider adding type="secondary" or custom class if needed
+    # Make the Try Again button consistent (Red)
+    if st.button("Try Again", type="secondary"): # Use secondary for red style
          st.session_state.error_message = None
+         st.session_state.show_camera = False # <- Reset to show big button first
          st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
