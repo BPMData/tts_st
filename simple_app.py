@@ -29,73 +29,60 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Reverted video rule, kept button resize) ---
-# Using the CSS from the step before the video resize attempt
+# --- Custom CSS Injection (Hover fix should be okay) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
-            .stApp > div:first-child > div:first-child > div:first-child { padding: 1rem 1rem 0 1rem; }
-            .stApp { padding: 0rem; }
+            .stApp { padding: 1rem; }
 
-
-            /* --- Camera Input Button (Slightly Larger) --- */
+            /* Make Camera Input Button Huge */
             div[data-testid="stCameraInput"] > div > button {
-                background-color: #008CBA; border: none; color: white;
+                background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
-                font-size: 24px; margin: 10px 2px 15px 2px; /* Adjusted margin */
-                cursor: pointer; border-radius: 10px;
-                width: 60vw; max-width: 400px;
-                height: 15vh; min-height: 80px;
-                padding: 15px 20px; line-height: 1.3; box-sizing: border-box;
-                 display: block; margin-left: auto; margin-right: auto;
+                font-size: 48px; margin: 20px 2px; cursor: pointer;
+                border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
             }
             div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
 
-             /* REMOVED Video constraint rule */
-
-             /* Center the camera widget container */
-             div[data-testid="stCameraInput"] {
-                  width: 100%; display: flex; justify-content: center;
-                  flex-direction: column; align-items: center;
-             }
-
-
-            /* General Style for OTHER Action Buttons (Play/Start Over/Try Again) - Kept Large */
-            #playButton {{ /* Play Button (Inside Component) */
-                background-color: #4CAF50; border: none; color: white; text-align: center; text-decoration: none; display: block;
-                font-size: 40px; margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; height: 25vh; line-height: 25vh; box-sizing: border-box; padding: 0;
-            }}
-            #playButton:hover {{ color: white !important; background-color: #45a049; }}
-
-            div[data-testid="stButton"] > button { /* Start Over / Try Again Buttons */
-                border: none; color: white; padding: 40px 40px; text-align: center; text-decoration: none; display: inline-block;
-                font-size: 40px; margin: 15px 2px; cursor: pointer; border-radius: 12px; width: 70vw;
-                min-height: 15vh; line-height: 1.2; box-sizing: border-box;
-                display: flex !important; align-items: center !important; justify-content: center !important;
+            /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
+            div[data-testid="stButton"] > button {
+                border: none; color: white; padding: 40px 40px;
+                text-align: center; text-decoration: none; display: inline-block;
+                font-size: 40px; margin: 15px 2px; cursor: pointer;
+                border-radius: 12px; width: 70vw; /* Keep width */
+                min-height: 15vh; /* Use min-height for flexibility */
+                line-height: 1.2; box-sizing: border-box; /* Ensure padding included */
+                display: flex !important; /* Use flex to center content vertically */
+                align-items: center !important;
+                justify-content: center !important;
             }
-            div[data-testid="stButton"] > button[kind="secondary"] { /* Start Over */
-                 background-color: #f44336 !important; height: 25vh; min-height: 25vh;
-            }
-             div[data-testid="stButton"] > button:not([kind="secondary"]) { /* Try Again */
-                 background-color: #4CAF50 !important; /* Ensure Green */
-            }
-             /* Hover states for Start Over / Try Again */
             div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
-            div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f !important; opacity: 1.0; }
-            div[data-testid="stButton"] > button:not([kind="secondary"]):hover { background-color: #45a049 !important; }
+            div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f44336; /* Red */ }
+            div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f; color: white !important; opacity: 1.0; }
 
-
-             /* Centering structure */
-             .stApp > div:first-child { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 95vh; }
-             div[data-testid="stVerticalBlock"], div[data-testid="stVerticalBlock"] > div[data-testid="element-container"], div[data-streamlit-component-button-audio] {
-                 align-items: center !important; display: flex !important; flex-direction: column !important; justify-content: center !important; width: 100% !important;
+             /* Centering */
+             .stApp > div:first-child {
+                display: flex; flex-direction: column; align-items: center;
+                justify-content: center; min-height: 95vh;
              }
-             div[data-streamlit-component-button-audio] { margin-bottom: 20px; }
-             div[data-testid="stButton"] { margin-bottom: 10px; }
+             /* Target containers for centering content */
+             div[data-testid="stVerticalBlock"],
+             div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
+             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
+                 align-items: center !important;
+                 display: flex !important;
+                 flex-direction: column !important;
+                 justify-content: center !important;
+                 width: 100% !important; /* Ensure component takes space */
+             }
+             /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
+             div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
+                  margin-top: 20px; /* Space before the Start Over button */
+             }
+
 
             </style>
             """
@@ -133,9 +120,6 @@ if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
-# --- NEW STATE ---
-if "image_just_captured" not in st.session_state: st.session_state.image_just_captured = False
-
 
 # --- Main App Logic ---
 
@@ -143,86 +127,118 @@ if missing_keys or not BACKEND_LOADED:
     st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
     st.stop()
 
-# --- NEW: Check if an image was captured in the *previous* run ---
-if st.session_state.image_just_captured and st.session_state.photo_buffer:
-    st.session_state.image_just_captured = False # Reset flag
-    st.session_state.processing = True # NOW trigger processing
-    # No rerun here, allow script to continue into processing block below
-
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
-    # Prevent camera input from showing if we are about to process
-    if not st.session_state.processing:
-        captured_image_buffer = st.camera_input(
-            "Take Photo", key=st.session_state.camera_key, label_visibility="hidden"
-            )
-        # Check if the buffer is newly available *compared to session state*
-        if captured_image_buffer is not None and st.session_state.photo_buffer is None:
-            st.session_state.photo_buffer = captured_image_buffer.getvalue()
-            st.session_state.image_just_captured = True # Set flag
-            # Don't set processing = True here, let the next rerun handle it
-            st.rerun() # Rerun immediately after capture
+    captured_image_buffer = st.camera_input(
+        "Tap HUGE button to take photo", key=st.session_state.camera_key, label_visibility="hidden"
+        )
+    if captured_image_buffer is not None:
+        st.session_state.photo_buffer = captured_image_buffer.getvalue()
+        st.session_state.processing = True
+        st.rerun()
 
 # State 2: Processing photo
 elif st.session_state.processing:
     with st.spinner("Thinking..."):
-        # Make sure we use the buffer stored in session state
-        img_bytes_to_process = st.session_state.photo_buffer
-        st.session_state.photo_buffer = None # Clear buffer now we're using it
-
-        if img_bytes_to_process: # Check if buffer actually has data
-            description, analysis_error = perform_image_analysis_simple(img_bytes_to_process)
-            if analysis_error:
-                st.session_state.error_message = analysis_error
+        description, analysis_error = perform_image_analysis_simple(st.session_state.photo_buffer)
+        st.session_state.photo_buffer = None
+        if analysis_error:
+            st.session_state.error_message = analysis_error
+            st.session_state.processing = False; st.session_state.show_play = False
+            st.rerun()
+        else:
+            audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
+            if tts_error:
+                st.session_state.error_message = tts_error
                 st.session_state.processing = False; st.session_state.show_play = False
                 st.rerun()
             else:
-                audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
-                if tts_error:
-                    st.session_state.error_message = tts_error
-                    st.session_state.processing = False; st.session_state.show_play = False
-                    st.rerun()
-                else:
-                    st.session_state.audio_data = audio_data
-                    st.session_state.processing = False; st.session_state.show_play = True
-                    st.rerun()
-        else:
-            # Should not happen if logic is correct, but handle it
-            st.session_state.error_message = "Error: Image data lost before processing."
-            st.session_state.processing = False; st.session_state.show_play = False
-            st.rerun()
-
+                st.session_state.audio_data = audio_data
+                st.session_state.processing = False; st.session_state.show_play = True
+                st.rerun()
 
 # State 3: Show Play button (using HTML Component) and Audio
 elif st.session_state.show_play:
-    # This state remains the same
     if st.session_state.audio_data:
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
-        # HTML Component (unchanged)
+
+        # --- UPDATED HTML Component ---
         component_html = f"""
-        <style> /* Component-internal styles */ ... </style>
-        <div class="center-container" data-streamlit-component-button-audio> ... </div>
-        <script> /* JS remains the same */ ... </script>
-        """ # Keep your working HTML/JS/CSS for component
-        st.components.v1.html(component_html, height=300)
+        <style>
+            .center-container {{
+                display: flex; flex-direction: column; align-items: center; width: 100%;
+            }}
+            /* Style for the custom play button - MAKE IT BIG AGAIN */
+            #playButton {{
+                background-color: #4CAF50; /* Green */
+                border: none; color: white;
+                text-align: center; text-decoration: none; display: block;
+                font-size: 40px; /* Large font */
+                margin: 15px auto; cursor: pointer; border-radius: 12px;
+                width: 70vw; /* Set desired width */
+                height: 25vh; /* Set desired height */
+                line-height: 25vh; /* Vertically center text (matches height) */
+                box-sizing: border-box;
+                padding: 0; /* Remove padding if line-height centers */
+            }}
+            #playButton:hover {{ color: white !important; background-color: #45a049; }}
+
+            #audioPlayerContainer {{
+                 text-align: center;
+                 margin-top: 15px; /* Slightly reduced margin */
+                 margin-bottom: 15px; /* Add margin below player */
+                 width: 80%;
+             }}
+             #audioPlayer {{ width: 100%; }}
+        </style>
+
+        <div class="center-container" data-streamlit-component-button-audio>
+             <div><button id="playButton">▶️ PLAY AUDIO</button></div>
+             <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
+        </div>
+
+        <script>
+            const playButton = document.getElementById('playButton');
+            const audioPlayer = document.getElementById('audioPlayer');
+            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
+
+            if (playButton && audioPlayer && !isBound) {{
+                playButton.addEventListener('click', function() {{
+                    console.log("Play button clicked!");
+                    audioPlayer.play().catch(e => console.error("Audio play failed:", e));
+                }});
+                document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
+                console.log("Event listener bound.");
+            }} else if (isBound) {{
+                 console.log("Event listener already bound.");
+            }} else {{
+                console.error("Component elements not found for binding!");
+            }}
+        </script>
+        """
+        # --- RENDER COMPONENT with adjusted height ---
+        # Calculate a potential height: button height (25vh) + audio player height (~50px) + margins (~30px)
+        # Convert vh to approx pixels if needed or just estimate. Let's try a smaller fixed value first.
+        st.components.v1.html(component_html, height=300) # TRY reducing height
+
     else:
         st.error("Error: Audio data is missing.")
 
-    # "Start Over" Button
+    # "Start Over" Button (uses general CSS for size)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
-        st.session_state.photo_buffer = None; st.session_state.processing = False; st.session_state.audio_data = None
-        st.session_state.error_message = None; st.session_state.show_play = False
-        st.session_state.image_just_captured = False # Reset flag
+        # Reset logic remains the same...
+        st.session_state.photo_buffer = None; st.session_state.processing = False
+        st.session_state.audio_data = None; st.session_state.error_message = None
+        st.session_state.show_play = False
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Error Display Logic
+# Error Display Logic (unchanged)
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
     if st.button("Try Again"):
          st.session_state.error_message = None
-         st.session_state.image_just_captured = False # Reset flag
          st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
