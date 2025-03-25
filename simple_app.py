@@ -29,7 +29,7 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Hover fix should be okay) ---
+# --- Custom CSS Injection ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -37,15 +37,20 @@ hide_streamlit_style = """
             footer {visibility: hidden;}
             .stApp { padding: 1rem; }
 
-            /* Make Camera Input Button Huge */
+            /* Hide Camera Input Button - we'll use our own */
             div[data-testid="stCameraInput"] > div > button {
+                display: none !important;
+            }
+            div[data-testid="stCameraInput"] label { display: none; }
+            
+            /* Big Blue Button Style */
+            .big-blue-button {
                 background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
             }
-            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
-            div[data-testid="stCameraInput"] label { display: none; }
+            .big-blue-button:hover { opacity: 0.9; }
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
@@ -83,7 +88,6 @@ hide_streamlit_style = """
                   margin-top: 20px; /* Space before the Start Over button */
              }
 
-
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -120,6 +124,25 @@ if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
+if "take_photo_clicked" not in st.session_state: st.session_state.take_photo_clicked = False
+
+# --- JavaScript to trigger camera click ---
+js_click_camera = """
+<script>
+    function clickCameraButton() {
+        // Find the camera button and click it programmatically
+        const cameraButtons = document.querySelectorAll('div[data-testid="stCameraInput"] button');
+        if (cameraButtons.length > 0) {
+            cameraButtons[0].click();
+            console.log("Camera button clicked via JS");
+        } else {
+            console.error("Camera button not found");
+        }
+    }
+    // Execute after a short delay to ensure DOM is loaded
+    setTimeout(clickCameraButton, 500);
+</script>
+"""
 
 # --- Main App Logic ---
 
@@ -130,9 +153,22 @@ if missing_keys or not BACKEND_LOADED:
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
+    
+    # Add the big blue button BEFORE the camera input
+    if st.button("TAKE PICTURE", key="big_blue_button", use_container_width=True):
+        st.session_state.take_photo_clicked = True
+        st.rerun()
+    
+    # If the big blue button was clicked, inject the JS to click the camera button
+    if st.session_state.take_photo_clicked:
+        st.components.v1.html(js_click_camera, height=0)
+        st.session_state.take_photo_clicked = False
+    
+    # The camera input is still here but its button is hidden via CSS
     captured_image_buffer = st.camera_input(
-        "Tap HUGE button to take photo", key=st.session_state.camera_key, label_visibility="hidden"
-        )
+        "Hidden camera label", key=st.session_state.camera_key, label_visibility="hidden"
+    )
+    
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
         st.session_state.processing = True
@@ -219,16 +255,13 @@ elif st.session_state.show_play:
         </script>
         """
         # --- RENDER COMPONENT with adjusted height ---
-        # Calculate a potential height: button height (25vh) + audio player height (~50px) + margins (~30px)
-        # Convert vh to approx pixels if needed or just estimate. Let's try a smaller fixed value first.
-        st.components.v1.html(component_html, height=300) # TRY reducing height
+        st.components.v1.html(component_html, height=300)
 
     else:
         st.error("Error: Audio data is missing.")
 
     # "Start Over" Button (uses general CSS for size)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
-        # Reset logic remains the same...
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
         st.session_state.show_play = False
