@@ -29,7 +29,7 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection ---
+# --- Custom CSS Injection (Hover fix should be okay) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -38,34 +38,13 @@ hide_streamlit_style = """
             .stApp { padding: 1rem; }
 
             /* Make Camera Input Button Huge */
-            div[data-testid="stCameraInput"] > div > button {
+            .camera-button {
                 background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
             }
-            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
-            div[data-testid="stCameraInput"] label { display: none; }
-
-            /* Reorder st.camera_input elements: show the button above the live preview */
-            div[data-testid="stCameraInput"] > div {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-            }
-            div[data-testid="stCameraInput"] > div > button {
-                order: 1;
-            }
-            /* Targeting both video and canvas elements in case the preview is rendered as either */
-            div[data-testid="stCameraInput"] > div > video,
-            div[data-testid="stCameraInput"] > div > canvas {
-                order: 2;
-                margin-top: 10px;
-                max-width: 400px !important;
-                max-height: 300px !important;
-                width: auto;
-                height: auto;
-            }
+            .camera-button:hover { color: white !important; opacity: 0.9; }
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
@@ -91,17 +70,23 @@ hide_streamlit_style = """
              /* Target containers for centering content */
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] {
+             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
                  align-items: center !important;
                  display: flex !important;
                  flex-direction: column !important;
                  justify-content: center !important;
-                 width: 100% !important;
+                 width: 100% !important; /* Ensure component takes space */
              }
              /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
              div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
-                  margin-top: 20px;
+                  margin-top: 20px; /* Space before the Start Over button */
              }
+            .camera-preview {
+                max-height: 300px;
+                max-width: 80vw;
+                overflow: hidden;
+            }
+
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -148,109 +133,14 @@ if missing_keys or not BACKEND_LOADED:
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
-    # Changed the label text to "TAKE PICTURE"
-    captured_image_buffer = st.camera_input(
-        "TAKE PICTURE", key=st.session_state.camera_key, label_visibility="hidden"
-        )
-    if captured_image_buffer is not None:
-        st.session_state.photo_buffer = captured_image_buffer.getvalue()
-        st.session_state.processing = True
-        st.rerun()
-
-# State 2: Processing photo
-elif st.session_state.processing:
-    with st.spinner("Thinking..."):
-        description, analysis_error = perform_image_analysis_simple(st.session_state.photo_buffer)
-        st.session_state.photo_buffer = None
-        if analysis_error:
-            st.session_state.error_message = analysis_error
-            st.session_state.processing = False; st.session_state.show_play = False
+    if st.button("TAKE PICTURE", key="take_photo", type="primary", help="Tap HUGE button to take photo",  use_container_width=True,  css={"width":"80vw", "height": "50vh", "font-size":"48px"}, classes = ["camera-button"]):
+        st.session_state.photo_buffer = st.camera_input(
+            "", key=st.session_state.camera_key, label_visibility="hidden"
+        ).getvalue() if st.camera_input(
+            "", key=st.session_state.camera_key, label_visibility="hidden"
+        ) is not None else None
+        if st.session_state.photo_buffer is not None:
+            st.session_state.processing = True
             st.rerun()
-        else:
-            audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
-            if tts_error:
-                st.session_state.error_message = tts_error
-                st.session_state.processing = False; st.session_state.show_play = False
-                st.rerun()
-            else:
-                st.session_state.audio_data = audio_data
-                st.session_state.processing = False; st.session_state.show_play = True
-                st.rerun()
 
-# State 3: Show Play button (using HTML Component) and Audio
-elif st.session_state.show_play:
-    if st.session_state.audio_data:
-        audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
-        audio_src = f"data:audio/mpeg;base64,{audio_base64}"
-
-        # --- UPDATED HTML Component ---
-        component_html = f"""
-        <style>
-            .center-container {{
-                display: flex; flex-direction: column; align-items: center; width: 100%;
-            }}
-            /* Style for the custom play button - MAKE IT BIG AGAIN */
-            #playButton {{
-                background-color: #4CAF50; /* Green */
-                border: none; color: white;
-                text-align: center; text-decoration: none; display: block;
-                font-size: 40px; /* Large font */
-                margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; /* Set desired width */
-                height: 25vh; /* Set desired height */
-                line-height: 25vh; /* Vertically center text (matches height) */
-                box-sizing: border-box;
-                padding: 0;
-            }}
-            #playButton:hover {{ color: white !important; background-color: #45a049; }}
-
-            #audioPlayerContainer {{
-                 text-align: center;
-                 margin-top: 15px;
-                 margin-bottom: 15px;
-                 width: 80%;
-             }}
-             #audioPlayer {{ width: 100%; }}
-        </style>
-
-        <div class="center-container" data-streamlit-component-button-audio>
-             <div><button id="playButton">▶️ PLAY AUDIO</button></div>
-             <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
-        </div>
-
-        <script>
-            const playButton = document.getElementById('playButton');
-            const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound');
-            if (playButton && audioPlayer && !isBound) {{
-                playButton.addEventListener('click', function() {{
-                    console.log("Play button clicked!");
-                    audioPlayer.play().catch(e => console.error("Audio play failed:", e));
-                }});
-                document.body.setAttribute('data-button-bound', 'true');
-                console.log("Event listener bound.");
-            }} else if (isBound) {{
-                 console.log("Event listener already bound.");
-            }} else {{
-                console.error("Component elements not found for binding!");
-            }}
-        </script>
-        """
-        st.components.v1.html(component_html, height=300)
-    else:
-        st.error("Error: Audio data is missing.")
-
-    if st.button("🔄 START OVER", key="reset", type="secondary"):
-        st.session_state.photo_buffer = None; st.session_state.processing = False
-        st.session_state.audio_data = None; st.session_state.error_message = None
-        st.session_state.show_play = False
-        st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
-        st.rerun()
-
-# Error Display Logic
-if st.session_state.error_message and not st.session_state.processing:
-    st.error(st.session_state.error_message)
-    if st.button("Try Again"):
-         st.session_state.error_message = None
-         st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
-         st.rerun()
+    if st.camera_input("", key=st.session_state
