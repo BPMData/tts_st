@@ -1,3 +1,8 @@
+import streamlit as st
+import requests
+import base64
+import io
+
 # --- Try importing backend functions ---
 try:
     from image_backend import look_at_photo, encode_image_from_bytes
