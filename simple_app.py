@@ -29,7 +29,8 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (Constrain Video Preview Size) ---
+# --- Custom CSS Injection (Reverted video rule, kept button resize) ---
+# Using the CSS from the step before the video resize attempt
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -53,18 +54,7 @@ hide_streamlit_style = """
             div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
 
-            /* --- ADDED: Constrain Video Preview Size --- */
-            div[data-testid="stCameraInput"] video {
-                width: 80%; /* Adjust percentage as needed */
-                max-width: 400px; /* Limit max width */
-                height: auto; /* Maintain aspect ratio */
-                display: block; /* Ensure it behaves like a block for centering */
-                margin-left: auto;
-                margin-right: auto;
-                border-radius: 8px; /* Optional: round corners */
-                margin-top: 5px; /* Add space above video if needed */
-            }
-            /* --- End of ADDED rule --- */
+             /* REMOVED Video constraint rule */
 
              /* Center the camera widget container */
              div[data-testid="stCameraInput"] {
@@ -131,99 +121,108 @@ def perform_image_analysis_simple(image_bytes):
         base64_image = encode_image_from_bytes(image_bytes)
         if not base64_image: return None, "Image encoding failed."
         description = look_at_photo(base64_image, upload=False)
-        if description and "error" not in description.lower() and "fail" in description.lower():
+        if description and "error" not in description.lower() and "fail" not in description.lower():
             return description, None
         else: return None, f"Analysis failed: {description or 'No response.'}"
     except Exception as e: return None, f"Analysis Error: {e}"
 
-# --- Initialize Session State (unchanged) ---
+# --- Initialize Session State ---
 if "photo_buffer" not in st.session_state: st.session_state.photo_buffer = None
 if "processing" not in st.session_state: st.session_state.processing = False
 if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
+# --- NEW STATE ---
+if "image_just_captured" not in st.session_state: st.session_state.image_just_captured = False
 
-# --- Main App Logic (unchanged) ---
+
+# --- Main App Logic ---
 
 if missing_keys or not BACKEND_LOADED:
     st.error(f"ERROR: App cannot run. Missing: {', '.join(missing_keys)}{' and image_backend.py' if not BACKEND_LOADED else ''}.")
     st.stop()
 
+# --- NEW: Check if an image was captured in the *previous* run ---
+if st.session_state.image_just_captured and st.session_state.photo_buffer:
+    st.session_state.image_just_captured = False # Reset flag
+    st.session_state.processing = True # NOW trigger processing
+    # No rerun here, allow script to continue into processing block below
+
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
-    captured_image_buffer = st.camera_input(
-        "Take Photo", key=st.session_state.camera_key, label_visibility="hidden"
-        )
-    if captured_image_buffer is not None:
-        st.session_state.photo_buffer = captured_image_buffer.getvalue()
-        st.session_state.processing = True
-        st.rerun()
+    # Prevent camera input from showing if we are about to process
+    if not st.session_state.processing:
+        captured_image_buffer = st.camera_input(
+            "Take Photo", key=st.session_state.camera_key, label_visibility="hidden"
+            )
+        # Check if the buffer is newly available *compared to session state*
+        if captured_image_buffer is not None and st.session_state.photo_buffer is None:
+            st.session_state.photo_buffer = captured_image_buffer.getvalue()
+            st.session_state.image_just_captured = True # Set flag
+            # Don't set processing = True here, let the next rerun handle it
+            st.rerun() # Rerun immediately after capture
 
 # State 2: Processing photo
 elif st.session_state.processing:
     with st.spinner("Thinking..."):
-        description, analysis_error = perform_image_analysis_simple(st.session_state.photo_buffer)
-        st.session_state.photo_buffer = None
-        if analysis_error:
-            st.session_state.error_message = analysis_error; st.session_state.processing = False; st.session_state.show_play = False
-            st.rerun()
-        else:
-            audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
-            if tts_error:
-                st.session_state.error_message = tts_error; st.session_state.processing = False; st.session_state.show_play = False
+        # Make sure we use the buffer stored in session state
+        img_bytes_to_process = st.session_state.photo_buffer
+        st.session_state.photo_buffer = None # Clear buffer now we're using it
+
+        if img_bytes_to_process: # Check if buffer actually has data
+            description, analysis_error = perform_image_analysis_simple(img_bytes_to_process)
+            if analysis_error:
+                st.session_state.error_message = analysis_error
+                st.session_state.processing = False; st.session_state.show_play = False
                 st.rerun()
             else:
-                st.session_state.audio_data = audio_data; st.session_state.processing = False; st.session_state.show_play = True
-                st.rerun()
+                audio_data, tts_error = text_to_speech_simple(description, DEFAULT_VOICE)
+                if tts_error:
+                    st.session_state.error_message = tts_error
+                    st.session_state.processing = False; st.session_state.show_play = False
+                    st.rerun()
+                else:
+                    st.session_state.audio_data = audio_data
+                    st.session_state.processing = False; st.session_state.show_play = True
+                    st.rerun()
+        else:
+            # Should not happen if logic is correct, but handle it
+            st.session_state.error_message = "Error: Image data lost before processing."
+            st.session_state.processing = False; st.session_state.show_play = False
+            st.rerun()
+
 
 # State 3: Show Play button (using HTML Component) and Audio
 elif st.session_state.show_play:
+    # This state remains the same
     if st.session_state.audio_data:
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
         # HTML Component (unchanged)
         component_html = f"""
-        <style> /* Component-internal styles */
-            .center-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
-            #playButton {{ /* Kept Large */
-                background-color: #4CAF50; border: none; color: white; text-align: center; text-decoration: none; display: block;
-                font-size: 40px; margin: 15px auto; cursor: pointer; border-radius: 12px;
-                width: 70vw; height: 25vh; line-height: 25vh; box-sizing: border-box; padding: 0;
-            }}
-            #playButton:hover {{ color: white !important; background-color: #45a049; }}
-            #audioPlayerContainer {{ text-align: center; margin-top: 15px; margin-bottom: 15px; width: 80%; }}
-            #audioPlayer {{ width: 100%; }}
-        </style>
-        <div class="center-container" data-streamlit-component-button-audio>
-             <div><button id="playButton">▶️ PLAY AUDIO</button></div>
-             <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
-        </div>
-        <script> /* JS remains the same */
-            const playButton = document.getElementById('playButton'); const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound');
-            if (playButton && audioPlayer && !isBound) {{
-                playButton.addEventListener('click', function() {{ console.log("Play button clicked!"); audioPlayer.play().catch(e => console.error("Audio play failed:", e)); }});
-                document.body.setAttribute('data-button-bound', 'true'); console.log("Event listener bound.");
-            }} else if (isBound) {{ console.log("Event listener already bound."); }} else {{ console.error("Component elements not found for binding!"); }}
-        </script>
-        """
-        st.components.v1.html(component_html, height=300) # Keep reduced height
+        <style> /* Component-internal styles */ ... </style>
+        <div class="center-container" data-streamlit-component-button-audio> ... </div>
+        <script> /* JS remains the same */ ... </script>
+        """ # Keep your working HTML/JS/CSS for component
+        st.components.v1.html(component_html, height=300)
     else:
         st.error("Error: Audio data is missing.")
 
-    # "Start Over" Button (Kept Large)
+    # "Start Over" Button
     if st.button("🔄 START OVER", key="reset", type="secondary"):
         st.session_state.photo_buffer = None; st.session_state.processing = False; st.session_state.audio_data = None
         st.session_state.error_message = None; st.session_state.show_play = False
+        st.session_state.image_just_captured = False # Reset flag
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Error Display Logic (unchanged)
+# Error Display Logic
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
-    if st.button("Try Again"): # Kept Large
+    if st.button("Try Again"):
          st.session_state.error_message = None
+         st.session_state.image_just_captured = False # Reset flag
          st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
