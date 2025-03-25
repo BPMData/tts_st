@@ -37,20 +37,35 @@ hide_streamlit_style = """
             footer {visibility: hidden;}
             .stApp { padding: 1rem; }
 
-            /* Hide Camera Input Button - we'll use our own */
+            /* Make Camera Input Button Huge */
             div[data-testid="stCameraInput"] > div > button {
-                display: none !important;
-            }
-            div[data-testid="stCameraInput"] label { display: none; }
-            
-            /* Big Blue Button Style */
-            .big-blue-button {
                 background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
             }
-            .big-blue-button:hover { opacity: 0.9; }
+            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
+            div[data-testid="stCameraInput"] label { display: none; }
+
+            /* Reorder st.camera_input elements: show the button above the live preview */
+            div[data-testid="stCameraInput"] > div {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            div[data-testid="stCameraInput"] > div > button {
+                order: 1;
+            }
+            /* Targeting both video and canvas elements in case the preview is rendered as either */
+            div[data-testid="stCameraInput"] > div > video,
+            div[data-testid="stCameraInput"] > div > canvas {
+                order: 2;
+                margin-top: 10px;
+                max-width: 400px !important;
+                max-height: 300px !important;
+                width: auto;
+                height: auto;
+            }
 
             /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
@@ -76,18 +91,17 @@ hide_streamlit_style = """
              /* Target containers for centering content */
              div[data-testid="stVerticalBlock"],
              div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
-             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
+             div[data-streamlit-component-button-audio] {
                  align-items: center !important;
                  display: flex !important;
                  flex-direction: column !important;
                  justify-content: center !important;
-                 width: 100% !important; /* Ensure component takes space */
+                 width: 100% !important;
              }
              /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
              div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
-                  margin-top: 20px; /* Space before the Start Over button */
+                  margin-top: 20px;
              }
-
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -124,25 +138,6 @@ if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "error_message" not in st.session_state: st.session_state.error_message = None
 if "show_play" not in st.session_state: st.session_state.show_play = False
 if "camera_key" not in st.session_state: st.session_state.camera_key = "cam_initial"
-if "take_photo_clicked" not in st.session_state: st.session_state.take_photo_clicked = False
-
-# --- JavaScript to trigger camera click ---
-js_click_camera = """
-<script>
-    function clickCameraButton() {
-        // Find the camera button and click it programmatically
-        const cameraButtons = document.querySelectorAll('div[data-testid="stCameraInput"] button');
-        if (cameraButtons.length > 0) {
-            cameraButtons[0].click();
-            console.log("Camera button clicked via JS");
-        } else {
-            console.error("Camera button not found");
-        }
-    }
-    // Execute after a short delay to ensure DOM is loaded
-    setTimeout(clickCameraButton, 500);
-</script>
-"""
 
 # --- Main App Logic ---
 
@@ -153,22 +148,10 @@ if missing_keys or not BACKEND_LOADED:
 # State 1: Ready to take photo
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
-    
-    # Add the big blue button BEFORE the camera input
-    if st.button("TAKE PICTURE", key="big_blue_button", use_container_width=True):
-        st.session_state.take_photo_clicked = True
-        st.rerun()
-    
-    # If the big blue button was clicked, inject the JS to click the camera button
-    if st.session_state.take_photo_clicked:
-        st.components.v1.html(js_click_camera, height=0)
-        st.session_state.take_photo_clicked = False
-    
-    # The camera input is still here but its button is hidden via CSS
+    # Changed the label text to "TAKE PICTURE"
     captured_image_buffer = st.camera_input(
-        "Hidden camera label", key=st.session_state.camera_key, label_visibility="hidden"
-    )
-    
+        "TAKE PICTURE", key=st.session_state.camera_key, label_visibility="hidden"
+        )
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
         st.session_state.processing = True
@@ -217,14 +200,14 @@ elif st.session_state.show_play:
                 height: 25vh; /* Set desired height */
                 line-height: 25vh; /* Vertically center text (matches height) */
                 box-sizing: border-box;
-                padding: 0; /* Remove padding if line-height centers */
+                padding: 0;
             }}
             #playButton:hover {{ color: white !important; background-color: #45a049; }}
 
             #audioPlayerContainer {{
                  text-align: center;
-                 margin-top: 15px; /* Slightly reduced margin */
-                 margin-bottom: 15px; /* Add margin below player */
+                 margin-top: 15px;
+                 margin-bottom: 15px;
                  width: 80%;
              }}
              #audioPlayer {{ width: 100%; }}
@@ -238,14 +221,13 @@ elif st.session_state.show_play:
         <script>
             const playButton = document.getElementById('playButton');
             const audioPlayer = document.getElementById('audioPlayer');
-            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
-
+            let isBound = document.body.hasAttribute('data-button-bound');
             if (playButton && audioPlayer && !isBound) {{
                 playButton.addEventListener('click', function() {{
                     console.log("Play button clicked!");
                     audioPlayer.play().catch(e => console.error("Audio play failed:", e));
                 }});
-                document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
+                document.body.setAttribute('data-button-bound', 'true');
                 console.log("Event listener bound.");
             }} else if (isBound) {{
                  console.log("Event listener already bound.");
@@ -254,13 +236,10 @@ elif st.session_state.show_play:
             }}
         </script>
         """
-        # --- RENDER COMPONENT with adjusted height ---
         st.components.v1.html(component_html, height=300)
-
     else:
         st.error("Error: Audio data is missing.")
 
-    # "Start Over" Button (uses general CSS for size)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
@@ -268,7 +247,7 @@ elif st.session_state.show_play:
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Error Display Logic (unchanged)
+# Error Display Logic
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
     if st.button("Try Again"):
