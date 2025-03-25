@@ -29,7 +29,7 @@ LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 if not OPENAI_API_KEY: missing_keys.append("OPENAI_API_KEY")
 if not LEMONFOX_API_KEY: missing_keys.append("LEMONFOX_API_KEY")
 
-# --- Custom CSS Injection (with HOVER fix) ---
+# --- Custom CSS Injection (Hover fix should be okay) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -39,61 +39,50 @@ hide_streamlit_style = """
 
             /* Make Camera Input Button Huge */
             div[data-testid="stCameraInput"] > div > button {
-                background-color: #008CBA; /* Blue */
-                border: none; color: white; padding: 50px 50px;
+                background-color: #008CBA; border: none; color: white; padding: 50px 50px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 48px; margin: 20px 2px; cursor: pointer;
                 border-radius: 12px; width: 80vw; height: 50vh; line-height: 1.2;
             }
-             /* Camera Button Hover */
-            div[data-testid="stCameraInput"] > div > button:hover {
-                 color: white !important; /* Keep text white */
-                 opacity: 0.9;
-            }
+            div[data-testid="stCameraInput"] > div > button:hover { color: white !important; opacity: 0.9; }
             div[data-testid="stCameraInput"] label { display: none; }
 
-            /* General Style for Streamlit Action Buttons (e.g., Start Over) */
+            /* General Style for Streamlit Action Buttons (Start Over / Try Again) */
             div[data-testid="stButton"] > button {
                 border: none; color: white; padding: 40px 40px;
                 text-align: center; text-decoration: none; display: inline-block;
                 font-size: 40px; margin: 15px 2px; cursor: pointer;
-                border-radius: 12px; width: 70vw; height: 25vh; line-height: 1.2;
+                border-radius: 12px; width: 70vw; /* Keep width */
+                min-height: 15vh; /* Use min-height for flexibility */
+                line-height: 1.2; box-sizing: border-box; /* Ensure padding included */
+                display: flex !important; /* Use flex to center content vertically */
+                align-items: center !important;
+                justify-content: center !important;
             }
-            /* HOVER state for standard Streamlit buttons */
-            div[data-testid="stButton"] > button:hover {
-                 color: white !important; /* Keep text white */
-                 opacity: 0.9; /* Slight visual feedback */
-            }
-            /* Specific style for Start Over button (make it red) */
-             div[data-testid="stButton"] > button[kind="secondary"] {
-                 background-color: #f44336; /* Red */
-             }
-             /* Hover for secondary/Red button */
-             div[data-testid="stButton"] > button[kind="secondary"]:hover {
-                 background-color: #d32f2f; /* Darker Red */
-                 color: white !important;
-                 opacity: 1.0; /* No extra opacity change */
-             }
+            div[data-testid="stButton"] > button:hover { color: white !important; opacity: 0.9; }
+            div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f44336; /* Red */ }
+            div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #d32f2f; color: white !important; opacity: 1.0; }
 
              /* Centering */
              .stApp > div:first-child {
                 display: flex; flex-direction: column; align-items: center;
                 justify-content: center; min-height: 95vh;
              }
+             /* Target containers for centering content */
              div[data-testid="stVerticalBlock"],
-             div[data-testid="stVerticalBlock"] > div[data-testid="element-container"] { /* Target inner container too */
+             div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
+             div[data-streamlit-component-button-audio] { /* Target our component wrapper */
                  align-items: center !important;
-                 display: flex !important; /* Use flex for centering button block */
+                 display: flex !important;
                  flex-direction: column !important;
                  justify-content: center !important;
+                 width: 100% !important; /* Ensure component takes space */
              }
-             /* Ensure component takes width */
-              div[data-streamlit-component-button-audio] {
-                 width: 100%;
-                 display: flex;
-                 flex-direction: column;
-                 align-items: center;
+             /* Add some gap AFTER the component IF NEEDED - adjust as necessary */
+             div[data-streamlit-component-button-audio] + div[data-testid="element-container"] {
+                  margin-top: 20px; /* Space before the Start Over button */
              }
+
 
             </style>
             """
@@ -142,9 +131,7 @@ if missing_keys or not BACKEND_LOADED:
 if not st.session_state.show_play and not st.session_state.processing:
     st.session_state.error_message = None
     captured_image_buffer = st.camera_input(
-        "Tap HUGE button to take photo",
-        key=st.session_state.camera_key,
-        label_visibility="hidden"
+        "Tap HUGE button to take photo", key=st.session_state.camera_key, label_visibility="hidden"
         )
     if captured_image_buffer is not None:
         st.session_state.photo_buffer = captured_image_buffer.getvalue()
@@ -174,91 +161,84 @@ elif st.session_state.processing:
 # State 3: Show Play button (using HTML Component) and Audio
 elif st.session_state.show_play:
     if st.session_state.audio_data:
-        # 1. Encode audio data to base64
         audio_base64 = base64.b64encode(st.session_state.audio_data).decode('utf-8')
         audio_src = f"data:audio/mpeg;base64,{audio_base64}"
 
-        # 2. Define HTML/CSS/JS for the component
+        # --- UPDATED HTML Component ---
         component_html = f"""
         <style>
-            /* Container for centering */
             .center-container {{
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                width: 100%;
+                display: flex; flex-direction: column; align-items: center; width: 100%;
             }}
-            /* Style for the custom play button */
+            /* Style for the custom play button - MAKE IT BIG AGAIN */
             #playButton {{
                 background-color: #4CAF50; /* Green */
-                border: none; color: white; padding: 40px 40px;
-                text-align: center; text-decoration: none; display: block; /* Make it block */
-                font-size: 40px; margin: 15px auto; cursor: pointer;
-                border-radius: 12px; width: 70vw; height: 25vh; line-height: 1.2;
-                box-sizing: border-box; /* Include padding in width/height */
+                border: none; color: white;
+                text-align: center; text-decoration: none; display: block;
+                font-size: 40px; /* Large font */
+                margin: 15px auto; cursor: pointer; border-radius: 12px;
+                width: 70vw; /* Set desired width */
+                height: 25vh; /* Set desired height */
+                line-height: 25vh; /* Vertically center text (matches height) */
+                box-sizing: border-box;
+                padding: 0; /* Remove padding if line-height centers */
             }}
-            #playButton:hover {{
-                 color: white !important; /* Keep text white */
-                 background-color: #45a049; /* Darker Green */
-            }}
-            /* Container for audio player */
-             #audioPlayerContainer {{
+            #playButton:hover {{ color: white !important; background-color: #45a049; }}
+
+            #audioPlayerContainer {{
                  text-align: center;
-                 margin-top: 20px;
-                 width: 80%; /* Control width of audio player */
+                 margin-top: 15px; /* Slightly reduced margin */
+                 margin-bottom: 15px; /* Add margin below player */
+                 width: 80%;
              }}
-             #audioPlayer {{
-                 width: 100%; /* Make player fill container */
-             }}
+             #audioPlayer {{ width: 100%; }}
         </style>
 
         <div class="center-container" data-streamlit-component-button-audio>
-             <div>
-                  <button id="playButton">▶️ PLAY AUDIO</button>
-             </div>
-
-             <div id="audioPlayerContainer">
-                  <audio id="audioPlayer" controls src="{audio_src}">
-                       Your browser does not support the audio element.
-                  </audio>
-             </div>
+             <div><button id="playButton">▶️ PLAY AUDIO</button></div>
+             <div id="audioPlayerContainer"><audio id="audioPlayer" controls src="{audio_src}"></audio></div>
         </div>
 
         <script>
             const playButton = document.getElementById('playButton');
             const audioPlayer = document.getElementById('audioPlayer');
-            let hasPlayed = false; // Flag to prevent multiple bindings if component re-renders unexpectedly
+            let isBound = document.body.hasAttribute('data-button-bound'); // Check if already bound
 
-            if (playButton && audioPlayer && !hasPlayed) {{ // Check elements exist
+            if (playButton && audioPlayer && !isBound) {{
                 playButton.addEventListener('click', function() {{
-                    console.log("Play button clicked!"); // Debug log
-                    audioPlayer.play().catch(e => console.error("Audio play failed:", e)); // Play audio, catch potential errors
+                    console.log("Play button clicked!");
+                    audioPlayer.play().catch(e => console.error("Audio play failed:", e));
                 }});
-                hasPlayed = true; // Set flag
-            }} else if (!playButton || !audioPlayer) {{
-                console.error("Could not find button or player element!");
+                document.body.setAttribute('data-button-bound', 'true'); // Mark as bound
+                console.log("Event listener bound.");
+            }} else if (isBound) {{
+                 console.log("Event listener already bound.");
+            }} else {{
+                console.error("Component elements not found for binding!");
             }}
         </script>
         """
-
-        # 3. Render the component
-        st.components.v1.html(component_html, height=450) # Adjust height if needed
+        # --- RENDER COMPONENT with adjusted height ---
+        # Calculate a potential height: button height (25vh) + audio player height (~50px) + margins (~30px)
+        # Convert vh to approx pixels if needed or just estimate. Let's try a smaller fixed value first.
+        st.components.v1.html(component_html, height=300) # TRY reducing height
 
     else:
-        st.error("Error: Audio data is missing.") # Fallback
+        st.error("Error: Audio data is missing.")
 
-    # Keep the standard Streamlit button for "Start Over" (styled large by CSS)
+    # "Start Over" Button (uses general CSS for size)
     if st.button("🔄 START OVER", key="reset", type="secondary"):
+        # Reset logic remains the same...
         st.session_state.photo_buffer = None; st.session_state.processing = False
         st.session_state.audio_data = None; st.session_state.error_message = None
         st.session_state.show_play = False
         st.session_state.camera_key = f"cam_{hash(st.session_state.camera_key)}"
         st.rerun()
 
-# Display errors if they occurred
+# Error Display Logic (unchanged)
 if st.session_state.error_message and not st.session_state.processing:
     st.error(st.session_state.error_message)
-    if st.button("Try Again"): # Use standard button styling
+    if st.button("Try Again"):
          st.session_state.error_message = None
          st.session_state.camera_key = f"cam_err_{hash(st.session_state.camera_key)}"
          st.rerun()
