@@ -231,17 +231,16 @@ import requests
 import base64
 from image_backend import look_at_photo, encode_image_from_bytes
 
-# --- Config & Keys ---
+# --- Config ---
 st.set_page_config(page_title="Camera to Speech", layout="wide")
 LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 LEMONFOX_API_URL = "https://api.lemonfox.ai/v1/audio/speech"
 VOICE = "bella"
 TTS_MODEL = "tts-1"
 
-# --- Enlarge Buttons via Custom CSS ---
+# --- Enlarge Buttons ---
 st.markdown("""
     <style>
-        /* Make camera button big */
         div[data-testid="stCameraInput"] button {
             background-color: #1976D2;
             color: white;
@@ -252,7 +251,6 @@ st.markdown("""
             height: 15vh;
         }
 
-        /* General Streamlit button (Start Over) */
         div[data-testid="stButton"] button {
             background-color: #d32f2f;
             color: white;
@@ -265,7 +263,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- TTS Function ---
+# --- TTS ---
 def text_to_speech(text):
     headers = {
         "Authorization": f"Bearer {LEMONFOX_API_KEY}",
@@ -287,16 +285,17 @@ if "mode" not in st.session_state:
 if "audio_data" not in st.session_state:
     st.session_state.audio_data = None
 
-# --- Main Flow ---
+# --- App Logic ---
 if st.session_state.mode == "camera":
     image = st.camera_input("Take a Picture")
     if image is not None:
-        base64_image = encode_image_from_bytes(image.getvalue())
-        description = look_at_photo(base64_image, upload=False)
-        audio = text_to_speech(description)
-        st.session_state.audio_data = audio
-        st.session_state.mode = "result"
-        st.rerun()
+        with st.spinner("Analyzing image and generating audio..."):
+            base64_image = encode_image_from_bytes(image.getvalue())
+            description = look_at_photo(base64_image, upload=False)
+            audio = text_to_speech(description)
+            st.session_state.audio_data = audio
+            st.session_state.mode = "result"
+            st.rerun()
 
 elif st.session_state.mode == "result":
     if st.session_state.audio_data:
@@ -330,6 +329,7 @@ elif st.session_state.mode == "result":
         st.session_state.mode = "camera"
         st.session_state.audio_data = None
         st.rerun()
+
 
 ################### Gemini 2.5 Pro for BIG BUTTON
 
