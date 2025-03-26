@@ -987,14 +987,6 @@ import io
 from streamlit_back_camera_input import back_camera_input
 # --------------------------------------
 
-# --- Import the shadcn button component ---
-try:
-    from streamlit_shadcn_ui import button as shadcn_button
-except ImportError:
-    st.error("Please install streamlit-shadcn-ui: pip install streamlit-shadcn-ui")
-    st.stop()
-# ------------------------------------------
-
 # --- Config ---
 st.set_page_config(page_title="Camera to Speech", layout="centered")
 LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
@@ -1007,9 +999,41 @@ if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
     # st.stop()
 
-# --- REMOVED CSS STYLING AND JS HACKS ---
-# Styling will be done inline (Play button) or via shadcn class_name (Start Over/Try Again)
-# ---------------------------------------
+# --- Reintroduce CSS Styling for st.button ---
+st.markdown("""
+    <style>
+        /* CSS for standard st.button widgets */
+        div[data-testid="stButton"] > button {
+            background-color: #d32f2f; /* Red */
+            color: white;
+            font-size: 36px;
+            padding: 10px; /* Match inline style padding */
+            width: 80vw;
+            max-width: 600px;
+            height: 150px; /* Fixed PX HEIGHT */
+            border: none;
+            border-radius: 16px;
+            display: flex; /* Use flex to center content */
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px; /* Space above button */
+            box-sizing: border-box; /* Consistent sizing */
+            line-height: 1.2; /* Help with wrapping */
+        }
+        div[data-testid="stButton"] > button:hover {
+             background-color: #b71c1c; /* Darker Red */
+             color: white;
+             cursor: pointer;
+             opacity: 0.9;
+         }
+         /* Basic layout centering */
+         .stApp > div:first-child { padding-top: 2vh; }
+         div[data-testid="stVerticalBlock"] { align-items: center; }
+    </style>
+""", unsafe_allow_html=True)
+# ----------------------------------------------------------
 
 # --- TTS ---
 def text_to_speech(text):
@@ -1049,7 +1073,7 @@ if "error_message" not in st.session_state: st.session_state.error_message = Non
 # --- State 1: Capture ---
 if st.session_state.app_state == "capture":
     st.info("Tap the video area below to take a picture using the back camera.")
-    image_object = back_camera_input(key="camera_capture_shadcn")
+    image_object = back_camera_input(key="camera_capture_css_retry")
     if image_object is not None:
         try:
             if hasattr(image_object, 'getvalue'): st.session_state.image_bytes_to_process = image_object.getvalue()
@@ -1072,10 +1096,10 @@ elif st.session_state.app_state == "processing":
                 audio, tts_err = text_to_speech(description)
                 if tts_err: st.session_state.error_message = tts_err; st.session_state.app_state = "error"
                 else: st.session_state.audio_data = audio; st.session_state.app_state = "playback"
-            st.session_state.image_bytes_to_process = None # Clear data after use
+            st.session_state.image_bytes_to_process = None
             st.rerun()
         else: # Should not happen
-            st.error("Processing state entered without image data."); st.session_state.app_state = "capture"; st.rerun()
+            st.error("Processing state error."); st.session_state.app_state = "capture"; st.rerun()
 
 # --- State 3: Playback ---
 elif st.session_state.app_state == "playback":
@@ -1086,7 +1110,7 @@ elif st.session_state.app_state == "playback":
             <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
                 <button id="playAudio" style="
                     background-color: #4CAF50; color: white; font-size: 36px; padding: 10px;
-                    width: 80vw; max-width: 600px; height: 150px; /* Verify this height renders correctly */
+                    width: 80vw; max-width: 600px; height: 150px; /* Fixed PX height */
                     border: none; border-radius: 16px; box-sizing: border-box;
                     display: flex; align-items: center; justify-content: center;
                     margin-bottom: 15px; cursor: pointer; line-height: 1.2; text-align: center;
@@ -1101,49 +1125,28 @@ elif st.session_state.app_state == "playback":
                     }}
                 </script>
             </div>
-        """, height=250) # Increased component height slightly just in case
+        """, height=220) # Adjusted component height slightly
         # ----------------------------------------------------
     else: # Should not happen
         st.error("Error: Audio data missing."); st.session_state.app_state = "capture"; st.rerun()
 
-    # --- Use shadcn_button for Start Over ---
-    # Apply Tailwind-like classes for styling
-    start_over_clicked = shadcn_button(
-        text="🔄 START OVER",
-        key="shadcn_start_over",
-        class_name=(
-            "w-[80vw] max-w-[600px] h-[150px] " # Width/Height
-            "bg-red-600 hover:bg-red-700 " # Colors (Tailwind red-600/700)
-            "text-white text-3xl font-semibold rounded-xl " # Text/Rounding (Using text-3xl ~ 30px)
-            "mt-4" # Margin Top
-        )
-    )
-    if start_over_clicked:
+    # --- Use st.button for Start Over (Styled via CSS) ---
+    if st.button("🔄 START OVER", key="st_start_over"):
          st.session_state.app_state = "capture"
          st.session_state.audio_data = None
          st.session_state.error_message = None
-         st.components.v1.html("<script>window.playListenerAttached = false;</script>", height=0) # Reset JS flag
+         st.components.v1.html("<script>window.playListenerAttached = false;</script>", height=0)
          st.rerun()
-    # -----------------------------------------
+    # ----------------------------------------------------
 
 # --- State 4: Error ---
 elif st.session_state.app_state == "error":
     st.error(f"An error occurred: {st.session_state.error_message}")
 
-    # --- Use shadcn_button for Try Again ---
-    try_again_clicked = shadcn_button(
-        text="🔄 TRY AGAIN",
-        key="shadcn_try_again",
-         class_name=( # Same styling as Start Over
-            "w-[80vw] max-w-[600px] h-[150px] "
-            "bg-red-600 hover:bg-red-700 "
-            "text-white text-3xl font-semibold rounded-xl "
-            "mt-4"
-        )
-    )
-    if try_again_clicked:
+    # --- Use st.button for Try Again (Styled via CSS) ---
+    if st.button("🔄 TRY AGAIN", key="st_try_again"):
          st.session_state.app_state = "capture"
          st.session_state.error_message = None
          st.session_state.audio_data = None
          st.rerun()
-    # ----------------------------------------
+    # ----------------------------------------------------
