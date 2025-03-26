@@ -20,30 +20,28 @@ if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
     # st.stop()
 
-# --- CSS Styling for st.button (BIG) ---
+# --- Reintroduce CSS Styling for st.button ---
 st.markdown("""
     <style>
-        /* Target standard Streamlit buttons */
+        /* CSS for standard st.button widgets */
         div[data-testid="stButton"] > button {
             background-color: #d32f2f; /* Red */
             color: white;
-            font-size: 40px;  /* Increased Font Size */
-            font-weight: bold; /* Make text bolder */
-            padding: 15px; /* Adjust padding slightly for larger font */
-            width: 85vw; /* Slightly wider */
-            max-width: 650px; /* Slightly wider max */
-            height: 160px; /* Slightly Taller */
+            font-size: 36px;
+            padding: 10px; /* Match inline style padding */
+            width: 80vw;
+            max-width: 600px;
+            height: 150px; /* Fixed PX HEIGHT */
             border: none;
-            border-radius: 20px; /* Slightly larger radius */
-            display: flex;
+            border-radius: 16px;
+            display: flex; /* Use flex to center content */
             align-items: center;
             justify-content: center;
             margin-left: auto;
             margin-right: auto;
-            margin-top: 25px; /* More space above */
-            box-sizing: border-box;
-            line-height: 1.3; /* Ensure text fits */
-            text-align: center;
+            margin-top: 20px; /* Space above button */
+            box-sizing: border-box; /* Consistent sizing */
+            line-height: 1.2; /* Help with wrapping */
         }
         div[data-testid="stButton"] > button:hover {
              background-color: #b71c1c; /* Darker Red */
@@ -96,7 +94,7 @@ if "error_message" not in st.session_state: st.session_state.error_message = Non
 # --- State 1: Capture ---
 if st.session_state.app_state == "capture":
     st.info("Tap the video area below to take a picture using the back camera.")
-    image_object = back_camera_input(key="camera_capture_big_focus")
+    image_object = back_camera_input(key="camera_capture_css_retry")
     if image_object is not None:
         try:
             if hasattr(image_object, 'getvalue'): st.session_state.image_bytes_to_process = image_object.getvalue()
@@ -128,28 +126,15 @@ elif st.session_state.app_state == "processing":
 elif st.session_state.app_state == "playback":
     if st.session_state.audio_data:
         audio_b64 = base64.b64encode(st.session_state.audio_data).decode("utf-8")
-        # --- Play Button (HTML Component - BIG) ---
+        # --- Play Button (HTML Component - verify height) ---
         st.components.v1.html(f"""
             <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-                <button id="playAudio" aria-label="Play Audio Description" style="
-                    background-color: #4CAF50; /* Green */
-                    color: white;
-                    font-size: 40px; /* Increased Font Size */
-                    font-weight: bold; /* Make text bolder */
-                    padding: 15px; /* Match CSS padding */
-                    width: 85vw; /* Slightly wider */
-                    max-width: 650px; /* Slightly wider max */
-                    height: 160px; /* Slightly Taller */
-                    border: none;
-                    border-radius: 20px; /* Slightly larger radius */
-                    box-sizing: border-box;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 20px; /* Increased space below */
-                    cursor: pointer;
-                    line-height: 1.3; /* Ensure text fits */
-                    text-align: center;
+                <button id="playAudio" style="
+                    background-color: #4CAF50; color: white; font-size: 36px; padding: 10px;
+                    width: 80vw; max-width: 600px; height: 150px; /* Fixed PX height */
+                    border: none; border-radius: 16px; box-sizing: border-box;
+                    display: flex; align-items: center; justify-content: center;
+                    margin-bottom: 15px; cursor: pointer; line-height: 1.2; text-align: center;
                 ">▶️ PLAY AUDIO</button>
                 <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
                 <script>
@@ -161,13 +146,13 @@ elif st.session_state.app_state == "playback":
                     }}
                 </script>
             </div>
-        """, height=250) # Increased component height to ensure button fits
+        """, height=220) # Adjusted component height slightly
         # ----------------------------------------------------
     else: # Should not happen
         st.error("Error: Audio data missing."); st.session_state.app_state = "capture"; st.rerun()
 
-    # --- Use st.button for Start Over (Styled BIG via CSS) ---
-    if st.button("🔄 START OVER", key="st_start_over_big"):
+    # --- Use st.button for Start Over (Styled via CSS) ---
+    if st.button("🔄 START OVER", key="st_start_over"):
          st.session_state.app_state = "capture"
          st.session_state.audio_data = None
          st.session_state.error_message = None
@@ -179,8 +164,8 @@ elif st.session_state.app_state == "playback":
 elif st.session_state.app_state == "error":
     st.error(f"An error occurred: {st.session_state.error_message}")
 
-    # --- Use st.button for Try Again (Styled BIG via CSS) ---
-    if st.button("🔄 TRY AGAIN", key="st_try_again_big"):
+    # --- Use st.button for Try Again (Styled via CSS) ---
+    if st.button("🔄 TRY AGAIN", key="st_try_again"):
          st.session_state.app_state = "capture"
          st.session_state.error_message = None
          st.session_state.audio_data = None
