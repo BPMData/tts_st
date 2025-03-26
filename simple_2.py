@@ -731,7 +731,7 @@ if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
     # st.stop() # Optionally stop execution if key is critical
 
-# --- Restore Styling ONLY for st.button ("Start Over") ---
+# --- Styling ONLY for st.button ("Start Over") ---
 st.markdown("""
     <style>
         /* CSS for standard st.button widgets */
@@ -740,16 +740,17 @@ st.markdown("""
             background-color: #d32f2f; /* Red */
             color: white;
             font-size: 36px;
-            padding: 30px; /* Padding */
-            width: 80vw;  /* Make standard buttons wide */
-            max-width: 600px; /* Add a max-width for very large screens */
-            height: 15vh; /* Make standard buttons tall */
-            border: none; /* Remove border */
+            padding: 30px; /* Crucial for internal spacing */
+            width: 80vw;
+            max-width: 600px;
+            height: 15vh;
+            border: none;
             border-radius: 16px;
-            display: block; /* Center the button */
+            display: block;
             margin-left: auto;
             margin-right: auto;
-            margin-top: 20px; /* Add some margin above START OVER */
+            margin-top: 20px;
+            box-sizing: border-box; /* Add for consistent sizing */
         }
         /* Add hover effect for standard button */
          div[data-testid="stButton"] > button:hover {
@@ -759,7 +760,7 @@ st.markdown("""
          }
          /* Center the elements vertically somewhat */
          .stApp > div:first-child {
-             padding-top: 2vh; /* Add some padding at the top */
+             padding-top: 2vh;
          }
          /* Ensure block containers center their content */
          div[data-testid="stVerticalBlock"] {
@@ -770,7 +771,7 @@ st.markdown("""
 # ----------------------------------------------------------
 
 # --- TTS ---
-# (Using the robust version from previous response)
+# (Same robust function as before)
 def text_to_speech(text):
     if not LEMONFOX_API_KEY:
         st.error("Cannot generate speech: LEMONFOX_API_KEY is missing.")
@@ -778,17 +779,8 @@ def text_to_speech(text):
     if not text:
         st.warning("No text description provided to generate speech.")
         return None
-
-    headers = {
-        "Authorization": f"Bearer {LEMONFOX_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": TTS_MODEL,
-        "input": text,
-        "voice": VOICE,
-        "response_format": "mp3"
-    }
+    headers = {"Authorization": f"Bearer {LEMONFOX_API_KEY}", "Content-Type": "application/json"}
+    data = {"model": TTS_MODEL, "input": text, "voice": VOICE, "response_format": "mp3"}
     try:
         with st.spinner("🔊 Generating audio description..."):
             response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
@@ -802,18 +794,13 @@ def text_to_speech(text):
         return None
 
 # --- State Init ---
-if "mode" not in st.session_state:
-    st.session_state.mode = "camera"
-if "audio_data" not in st.session_state:
-    st.session_state.audio_data = None
+if "mode" not in st.session_state: st.session_state.mode = "camera"
+if "audio_data" not in st.session_state: st.session_state.audio_data = None
 
 # --- App Logic ---
 if st.session_state.mode == "camera":
     st.info("Tap the video area below to take a picture using the back camera.")
-    # --- Use the back_camera_input component ---
-    image_object = back_camera_input(key="back_cam_big_so") # New key just in case
-    # ------------------------------------------
-
+    image_object = back_camera_input(key="back_cam_final_style")
     if image_object is not None:
         with st.spinner("Analyzing image and generating audio..."):
             try:
@@ -822,12 +809,10 @@ if st.session_state.mode == "camera":
                 if not base64_image:
                     st.error("Failed to encode image.")
                     st.stop()
-
                 description = look_at_photo(base64_image, upload=False)
                 if not description or "error" in description.lower():
                      st.error(f"Image analysis failed or returned an error: {description}")
                      st.stop()
-
                 audio = text_to_speech(description)
                 if audio:
                     st.session_state.audio_data = audio
@@ -840,24 +825,31 @@ if st.session_state.mode == "camera":
                 st.error(f"An error occurred during processing: {e}")
                 st.stop()
 
-
 elif st.session_state.mode == "result":
-    # --- Display Custom HTML Play Button (Taller) and Hidden Audio Player ---
     if st.session_state.audio_data:
         audio_b64 = base64.b64encode(st.session_state.audio_data).decode("utf-8")
+        # --- Updated HTML component for PLAY AUDIO button ---
         st.components.v1.html(f"""
             <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
                 <button id="playAudio" style="
                     background-color: #4CAF50; /* Green */
                     color: white;
-                    font-size: 36px; /* Larger font size */
-                    width: 80vw; /* Use viewport width */
-                    max-width: 600px; /* Match Start Over max-width */
-                    height: 15vh; /* Increased height back */
+                    /* === Making styles match START OVER === */
+                    font-size: 36px;
+                    padding: 30px; /* Added padding */
+                    width: 80vw;
+                    max-width: 600px;
+                    height: 15vh;
                     border: none;
                     border-radius: 16px;
-                    margin-bottom: 15px; /* Keep reduced margin-bottom */
+                    box-sizing: border-box; /* Added box-sizing */
+                    display: flex; /* Added flex for centering */
+                    align-items: center; /* Added flex for centering */
+                    justify-content: center; /* Added flex for centering */
+                    /* === End matching styles === */
+                    margin-bottom: 15px; /* Keep reduced margin */
                     cursor: pointer;
+                    line-height: 1.2; /* Added line-height for potential text wrap */
                 ">▶️ PLAY AUDIO</button>
 
                 <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
@@ -869,26 +861,20 @@ elif st.session_state.mode == "result":
                         if (!window.playListenerAttached) {{
                              btn.addEventListener("click", () => {{
                                 console.log("Play button clicked");
-                                if (player.paused) {{
-                                    player.play().catch(e => console.error("Audio play failed:", e));
-                                }} else {{
-                                    player.pause();
-                                }}
+                                if (player.paused) {{ player.play().catch(e => console.error("Audio play failed:", e)); }}
+                                else {{ player.pause(); }}
                             }});
                             window.playListenerAttached = true;
-                            console.log("Play listener attached.");
                         }}
-                    }} else {{
-                        console.error("Play button or audio player element not found!");
-                    }}
+                    }} else {{ console.error("Play button or audio player element not found!"); }}
                 </script>
             </div>
-        """, height=230) # Increased component height
+        """, height=250) # Increased height slightly again due to padding
+        # ----------------------------------------------------
     else:
         st.error("Error: Audio data not found for playback.")
 
-    # --- Display Large "START OVER" Button ---
-    # This button will use the restored CSS styling
+    # This button uses the CSS above
     if st.button("🔄 START OVER"):
         st.session_state.mode = "camera"
         st.session_state.audio_data = None
