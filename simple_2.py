@@ -714,6 +714,7 @@ import streamlit as st
 import requests
 import base64
 from image_backend import look_at_photo, encode_image_from_bytes # Assuming these are correct
+import io # Needed if getvalue() isn't direct bytes
 
 # --- Import the new camera component ---
 from streamlit_back_camera_input import back_camera_input
@@ -729,136 +730,247 @@ TTS_MODEL = "tts-1"
 # --- Basic Error Checking for Secrets ---
 if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
-    # st.stop() # Optionally stop execution if key is critical
+    # Consider adding checks for image_backend keys if necessary
+    # st.stop() # Optionally stop execution if keys are critical
 
-# --- Styling ONLY for st.button ("Start Over") ---
+# --- Styling ONLY for st.button ("Start Over / Try Again") ---
+# Added a specific class for the error button for potentially different styling
 st.markdown("""
     <style>
-        /* CSS for standard st.button widgets */
-        div[data-testid="stButton"] > button {
-            background-color: #d32f2f; /* Red */
-            color: white;
+        /* Base style for large buttons */
+        .stButton > button.large-button {
             font-size: 36px;
-            padding: 10px; /* Reduced padding slightly to help text fit */
+            padding: 10px;
             width: 80vw;
             max-width: 600px;
-            height: 150px; /* USE FIXED PX HEIGHT */
+            height: 150px;
             border: none;
             border-radius: 16px;
-            display: flex; /* Use flex to center content */
+            display: flex;
             align-items: center;
             justify-content: center;
             margin-left: auto;
             margin-right: auto;
             margin-top: 20px;
             box-sizing: border-box;
-            line-height: 1.2; /* Help with wrapping if needed */
+            line-height: 1.2;
+            color: white;
         }
-        div[data-testid="stButton"] > button:hover {
-             background-color: #b71c1c; /* Darker Red */
+        .stButton > button.large-button:hover {
              color: white;
              cursor: pointer;
-         }
-         .stApp > div:first-child {
-             padding-top: 2vh;
-         }
-         div[data-testid="stVerticalBlock"] {
-             align-items: center;
-         }
+             opacity: 0.9;
+        }
+
+        /* Specific style for the 'Start Over / Try Again' button (Red) */
+        .stButton > button.red-button {
+            background-color: #d32f2f; /* Red */
+        }
+        .stButton > button.red-button:hover {
+             background-color: #b71c1c; /* Darker Red */
+        }
+
+         /* Center elements */
+         .stApp > div:first-child { padding-top: 2vh; }
+         div[data-testid="stVerticalBlock"] { align-items: center; }
     </style>
 """, unsafe_allow_html=True)
 # ----------------------------------------------------------
 
 # --- TTS ---
-# (Same robust function as before)
 def text_to_speech(text):
-    if not LEMONFOX_API_KEY: st.error("Cannot generate speech: LEMONFOX_API_KEY is missing."); return None
-    if not text: st.warning("No text description provided to generate speech."); return None
+    # (Same function as before)
+    if not LEMONFOX_API_KEY: st.error("Cannot generate speech: LEMONFOX_API_KEY is missing."); return None, "API Key Missing"
+    if not text: st.warning("No text description provided to generate speech."); return None, "No Input Text"
     headers = {"Authorization": f"Bearer {LEMONFOX_API_KEY}", "Content-Type": "application/json"}
     data = {"model": TTS_MODEL, "input": text, "voice": VOICE, "response_format": "mp3"}
     try:
-        with st.spinner("🔊 Generating audio description..."):
-            response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
-            response.raise_for_status()
-        return response.content
-    except requests.exceptions.RequestException as e: st.error(f"Audio generation failed: {e}"); return None
-    except Exception as e: st.error(f"An unexpected error occurred during TTS: {e}"); return None
+        # Removed internal spinner, will use global one
+        response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
+        response.raise_for_status()
+        return response.content, None # Return audio bytes and None for error
+    except requests.exceptions.RequestException as e:
+        st.error(f"Audio generation failed: {e}")
+        return None, f"Audio API Error: {e}"
+    except Exception as e:
+        st.error(f"An unexpected error occurred during TTS: {e}")
+        return None, f"TTS Error: {e}"
 
-# --- State Init ---
-if "mode" not in st.session_state: st.session_state.mode = "camera"
-if "audio_data" not in st.session_state: st.session_state.audio_data = None
+# --- Image Analysis ---
+def analyze_image(image_bytes):
+    # Placeholder - assuming image_backend functions handle errors internally for now
+    # If they raise exceptions, wrap this in try...except
+    try:
+        base64_image = encode_image_from_bytes(image_bytes)
+        if not base64_image:
+            return None, "Failed to encode image."
+        description = look_at_photo(base64_image, upload=False)
+        if not description or "error" in description.lower():
+             return None, f"Image analysis failed or returned error: {description}"
+        return description, None # Return description and None for error
+    except Exception as e:
+        return None, f"Analysis Error: {e}"
 
-# --- App Logic ---
-if st.session_state.mode == "camera":
+# --- State Initialization ---
+# Using a single state variable for clarity
+if "app_state" not in st.session_state:
+    st.session_state.app_state = "capture" # States: capture, processing, playback, error
+if "image_bytes_to_process" not in st.session_state:
+    st.session_state.image_bytes_to_process = None
+if "audio_data" not in st.session_state:
+    st.session_state.audio_data = None
+if "error_message" not in st.session_state:
+    st.session_state.error_message = None
+
+# ==============================================================================
+# --- Main App Logic based on State ---
+# ==============================================================================
+
+# --- State 1: Capture ---
+if st.session_state.app_state == "capture":
     st.info("Tap the video area below to take a picture using the back camera.")
-    image_object = back_camera_input(key="back_cam_px_height")
-    if image_object is not None:
-        with st.spinner("Analyzing image and generating audio..."):
-            try:
-                image_bytes = image_object.getvalue()
-                base64_image = encode_image_from_bytes(image_bytes)
-                if not base64_image: st.error("Failed to encode image."); st.stop()
-                description = look_at_photo(base64_image, upload=False)
-                if not description or "error" in description.lower(): st.error(f"Image analysis failed: {description}"); st.stop()
-                audio = text_to_speech(description)
-                if audio:
-                    st.session_state.audio_data = audio
-                    st.session_state.mode = "result"
-                    st.rerun()
-                else: st.warning("Audio generation failed. Please try taking another picture."); st.stop()
-            except Exception as e: st.error(f"An error occurred during processing: {e}"); st.stop()
+    image_object = back_camera_input(key="camera_capture")
 
-elif st.session_state.mode == "result":
+    if image_object is not None:
+        # IMMEDIATELY store bytes and switch state
+        try:
+            # Handle potential variations in return type (BytesIO, PIL Image, etc.)
+            if hasattr(image_object, 'getvalue'):
+                st.session_state.image_bytes_to_process = image_object.getvalue()
+            elif hasattr(image_object, 'read'):
+                 st.session_state.image_bytes_to_process = image_object.read()
+            # Add elif for PIL Image if necessary:
+            # elif isinstance(image_object, Image.Image):
+            #    buf = io.BytesIO()
+            #    image_object.save(buf, format='PNG') # or JPEG
+            #    st.session_state.image_bytes_to_process = buf.getvalue()
+            else:
+                 raise TypeError("Unsupported image object type returned by camera input.")
+
+            if st.session_state.image_bytes_to_process:
+                 st.session_state.app_state = "processing"
+                 st.rerun() # Rerun immediately to hide camera and show spinner
+            else:
+                 st.error("Captured image data could not be read.")
+
+        except Exception as e:
+             st.error(f"Error reading image data: {e}")
+             # Stay in capture mode if reading fails
+
+
+# --- State 2: Processing ---
+elif st.session_state.app_state == "processing":
+    with st.spinner("Analyzing image and generating audio..."):
+        if st.session_state.image_bytes_to_process:
+            description, analysis_err = analyze_image(st.session_state.image_bytes_to_process)
+
+            if analysis_err:
+                st.session_state.error_message = analysis_err
+                st.session_state.app_state = "error"
+                st.session_state.image_bytes_to_process = None # Clear data
+                st.rerun()
+            else:
+                audio, tts_err = text_to_speech(description)
+                if tts_err:
+                    st.session_state.error_message = tts_err
+                    st.session_state.app_state = "error"
+                    st.session_state.image_bytes_to_process = None # Clear data
+                    st.rerun()
+                else:
+                    # Success!
+                    st.session_state.audio_data = audio
+                    st.session_state.app_state = "playback"
+                    st.session_state.image_bytes_to_process = None # Clear data
+                    st.rerun()
+        else:
+            # Should not happen normally, but handles edge case
+            st.error("Processing state entered without image data.")
+            st.session_state.app_state = "capture" # Go back to capture
+            st.rerun()
+
+# --- State 3: Playback ---
+elif st.session_state.app_state == "playback":
     if st.session_state.audio_data:
         audio_b64 = base64.b64encode(st.session_state.audio_data).decode("utf-8")
-        # --- Updated HTML component for PLAY AUDIO button ---
         st.components.v1.html(f"""
             <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
                 <button id="playAudio" style="
-                    background-color: #4CAF50; /* Green */
-                    color: white;
-                    /* === Matching START OVER more closely === */
-                    font-size: 36px;
-                    padding: 10px; /* Reduced padding slightly */
-                    width: 80vw;
-                    max-width: 600px;
-                    height: 150px; /* USE FIXED PX HEIGHT */
-                    border: none;
-                    border-radius: 16px;
-                    box-sizing: border-box;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    /* === End matching styles === */
-                    margin-bottom: 15px; /* Keep reduced margin */
-                    cursor: pointer;
-                    line-height: 1.2; /* Help text fit */
-                    text-align: center; /* Ensure text centers */
+                    background-color: #4CAF50; color: white; font-size: 36px; padding: 10px;
+                    width: 80vw; max-width: 600px; height: 150px; border: none; border-radius: 16px;
+                    box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+                    margin-bottom: 15px; cursor: pointer; line-height: 1.2; text-align: center;
                 ">▶️ PLAY AUDIO</button>
-
                 <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
-
                 <script>
-                    const btn = document.getElementById("playAudio");
-                    const player = document.getElementById("player");
-                    if (btn && player) {{
-                        if (!window.playListenerAttached) {{
-                             btn.addEventListener("click", () => {{
-                                if (player.paused) {{ player.play().catch(e => console.error("Audio play failed:", e)); }} else {{ player.pause(); }}
-                            }});
-                            window.playListenerAttached = true;
-                        }}
-                    }} else {{ console.error("Play button or audio player element not found!"); }}
+                    const btn = document.getElementById("playAudio"), player = document.getElementById("player");
+                    if (btn && player && !window.playListenerAttached) {{
+                        btn.addEventListener("click", () => {{ if (player.paused) player.play().catch(e => console.error("Audio play failed:", e)); else player.pause(); }});
+                        window.playListenerAttached = true;
+                    }}
                 </script>
             </div>
-        """, height=200) # Adjusted component height (150px button + 15px margin + ~35px for potential player controls if shown/debug)
-        # ----------------------------------------------------
+        """, height=200)
     else:
-        st.error("Error: Audio data not found for playback.")
-
-    # This button uses the CSS above
-    if st.button("🔄 START OVER"):
-        st.session_state.mode = "camera"
-        st.session_state.audio_data = None
-        st.components.v1.html("<script>window.playListenerAttached = false;</script>", height=0)
+        st.error("Error: Audio data missing in playback state.")
+        st.session_state.app_state = "capture" # Reset if data lost
         st.rerun()
+
+    # Use st.button with custom class for styling
+    if st.button("🔄 START OVER", key="start_over_btn", type="primary"): # type='primary' helps streamlit distinguish, but styling overrides
+         # Apply CSS class via undocumented method (use with caution, might break)
+         st.markdown('<style>button[data-testid="stButton"] { visibility: hidden; } </style>', unsafe_allow_html=True) # Hide default momentarily
+         st.markdown(f"""
+             <script>
+                 // Find the button associated with the key 'start_over_btn' and add classes
+                 const buttons = Array.from(window.parent.document.querySelectorAll('button[data-testid="stButton"]'));
+                 const targetButton = buttons.find(btn => btn.innerText && btn.innerText.includes("START OVER")); // Find by text content
+                 if (targetButton) {{
+                     targetButton.classList.add('large-button', 'red-button');
+                     targetButton.style.visibility = 'visible'; // Make visible again
+                 }} else {{
+                     console.warn("Could not find Start Over button to apply class");
+                 }}
+                 // Cleanup the temporary style hide
+                 const cleanupStyle = window.parent.document.getElementById('temp-hide-style');
+                 if(cleanupStyle) cleanupStyle.remove();
+             </script>
+             <style id="temp-hide-style">button[data-testid="stButton"]:not(.large-button) {{ visibility: hidden; }}</style>
+             """, unsafe_allow_html=True)
+
+
+         st.session_state.app_state = "capture"
+         st.session_state.audio_data = None
+         st.session_state.error_message = None
+         st.components.v1.html("<script>window.playListenerAttached = false;</script>", height=0)
+         st.rerun()
+
+
+# --- State 4: Error ---
+elif st.session_state.app_state == "error":
+    st.error(f"An error occurred: {st.session_state.error_message}")
+
+    # Use st.button with custom class for styling
+    if st.button("🔄 TRY AGAIN", key="try_again_btn", type="primary"):
+         # Apply CSS class via undocumented method (use with caution)
+         st.markdown('<style>button[data-testid="stButton"] { visibility: hidden; } </style>', unsafe_allow_html=True) # Hide default momentarily
+         st.markdown(f"""
+             <script>
+                 const buttons = Array.from(window.parent.document.querySelectorAll('button[data-testid="stButton"]'));
+                 const targetButton = buttons.find(btn => btn.innerText && btn.innerText.includes("TRY AGAIN")); // Find by text content
+                 if (targetButton) {{
+                     targetButton.classList.add('large-button', 'red-button');
+                      targetButton.style.visibility = 'visible'; // Make visible again
+                 }} else {{
+                     console.warn("Could not find Try Again button to apply class");
+                 }}
+                 // Cleanup the temporary style hide
+                 const cleanupStyle = window.parent.document.getElementById('temp-hide-style');
+                 if(cleanupStyle) cleanupStyle.remove();
+             </script>
+             <style id="temp-hide-style">button[data-testid="stButton"]:not(.large-button) {{ visibility: hidden; }}</style>
+             """, unsafe_allow_html=True)
+
+         st.session_state.app_state = "capture"
+         st.session_state.error_message = None
+         st.session_state.audio_data = None # Ensure audio data is cleared on error retry
+         st.rerun()
