@@ -720,7 +720,6 @@ from streamlit_back_camera_input import back_camera_input
 # --------------------------------------
 
 # --- Config ---
-# Set layout back to default or centered if preferred, wide might feel empty now
 st.set_page_config(page_title="Camera to Speech", layout="centered")
 LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 LEMONFOX_API_URL = "https://api.lemonfox.ai/v1/audio/speech"
@@ -732,9 +731,43 @@ if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
     # st.stop() # Optionally stop execution if key is critical
 
-# --- REMOVED CSS STYLING BLOCK ---
-# No more st.markdown with <style> here. Buttons and layout will use Streamlit defaults.
-# ---------------------------------
+# --- Restore Styling ONLY for st.button ("Start Over") ---
+st.markdown("""
+    <style>
+        /* CSS for standard st.button widgets */
+        /* This WILL style the 'START OVER' button */
+        div[data-testid="stButton"] > button {
+            background-color: #d32f2f; /* Red */
+            color: white;
+            font-size: 36px;
+            padding: 30px; /* Padding */
+            width: 80vw;  /* Make standard buttons wide */
+            max-width: 600px; /* Add a max-width for very large screens */
+            height: 15vh; /* Make standard buttons tall */
+            border: none; /* Remove border */
+            border-radius: 16px;
+            display: block; /* Center the button */
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px; /* Add some margin above START OVER */
+        }
+        /* Add hover effect for standard button */
+         div[data-testid="stButton"] > button:hover {
+             background-color: #b71c1c; /* Darker Red */
+             color: white;
+             cursor: pointer;
+         }
+         /* Center the elements vertically somewhat */
+         .stApp > div:first-child {
+             padding-top: 2vh; /* Add some padding at the top */
+         }
+         /* Ensure block containers center their content */
+         div[data-testid="stVerticalBlock"] {
+             align-items: center;
+         }
+    </style>
+""", unsafe_allow_html=True)
+# ----------------------------------------------------------
 
 # --- TTS ---
 # (Using the robust version from previous response)
@@ -757,10 +790,9 @@ def text_to_speech(text):
         "response_format": "mp3"
     }
     try:
-        # Spinner context manager for user feedback
         with st.spinner("🔊 Generating audio description..."):
             response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            response.raise_for_status()
         return response.content
     except requests.exceptions.RequestException as e:
         st.error(f"Audio generation failed: {e}")
@@ -779,18 +811,13 @@ if "audio_data" not in st.session_state:
 if st.session_state.mode == "camera":
     st.info("Tap the video area below to take a picture using the back camera.")
     # --- Use the back_camera_input component ---
-    image_object = back_camera_input(key="back_cam_no_style")
+    image_object = back_camera_input(key="back_cam_big_so") # New key just in case
     # ------------------------------------------
 
     if image_object is not None:
-        # Wrap processing in a spinner for better UX
         with st.spinner("Analyzing image and generating audio..."):
             try:
-                # --- Assuming getvalue() works directly ---
                 image_bytes = image_object.getvalue()
-                # ------------------------------------------
-
-                # --- Analyze and Generate Audio ---
                 base64_image = encode_image_from_bytes(image_bytes)
                 if not base64_image:
                     st.error("Failed to encode image.")
@@ -802,42 +829,38 @@ if st.session_state.mode == "camera":
                      st.stop()
 
                 audio = text_to_speech(description)
-                # ----------------------------------
-
-                if audio: # Proceed only if audio generation was successful
+                if audio:
                     st.session_state.audio_data = audio
                     st.session_state.mode = "result"
                     st.rerun()
                 else:
                     st.warning("Audio generation failed. Please try taking another picture.")
                     st.stop()
-
             except Exception as e:
                 st.error(f"An error occurred during processing: {e}")
                 st.stop()
 
 
 elif st.session_state.mode == "result":
-    # --- Display Custom HTML Play Button and Hidden Audio Player ---
+    # --- Display Custom HTML Play Button (Taller) and Hidden Audio Player ---
     if st.session_state.audio_data:
         audio_b64 = base64.b64encode(st.session_state.audio_data).decode("utf-8")
-        # Still uses custom HTML for the Play button, but the START OVER below is now default
         st.components.v1.html(f"""
             <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
                 <button id="playAudio" style="
                     background-color: #4CAF50; /* Green */
                     color: white;
-                    font-size: 24px; /* Adjusted font size slightly */
+                    font-size: 36px; /* Larger font size */
                     width: 80vw; /* Use viewport width */
-                    max-width: 500px; /* Add max-width */
-                    height: 12vh; /* Adjusted height slightly */
+                    max-width: 600px; /* Match Start Over max-width */
+                    height: 15vh; /* Increased height back */
                     border: none;
                     border-radius: 16px;
-                    margin-bottom: 15px; /* Reduced margin-bottom */
+                    margin-bottom: 15px; /* Keep reduced margin-bottom */
                     cursor: pointer;
                 ">▶️ PLAY AUDIO</button>
 
-                <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 500px;"></audio>
+                <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
 
                 <script>
                     const btn = document.getElementById("playAudio");
@@ -860,12 +883,12 @@ elif st.session_state.mode == "result":
                     }}
                 </script>
             </div>
-        """, height=180) # Adjusted component height to be tighter
+        """, height=230) # Increased component height
     else:
         st.error("Error: Audio data not found for playback.")
 
-    # --- Display Standard "START OVER" Button ---
-    # This button will now use Streamlit's default appearance
+    # --- Display Large "START OVER" Button ---
+    # This button will use the restored CSS styling
     if st.button("🔄 START OVER"):
         st.session_state.mode = "camera"
         st.session_state.audio_data = None
