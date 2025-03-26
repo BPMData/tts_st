@@ -5,3 +5,4 @@ python-docx==1.1.2
 openai
 litellm
 streamlit-back-camera-input
+streamlit-shadcn-ui
