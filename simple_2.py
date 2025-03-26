@@ -735,34 +735,33 @@ if not LEMONFOX_API_KEY:
 st.markdown("""
     <style>
         /* CSS for standard st.button widgets */
-        /* This WILL style the 'START OVER' button */
         div[data-testid="stButton"] > button {
             background-color: #d32f2f; /* Red */
             color: white;
             font-size: 36px;
-            padding: 30px; /* Crucial for internal spacing */
+            padding: 10px; /* Reduced padding slightly to help text fit */
             width: 80vw;
             max-width: 600px;
-            height: 15vh;
+            height: 150px; /* USE FIXED PX HEIGHT */
             border: none;
             border-radius: 16px;
-            display: block;
+            display: flex; /* Use flex to center content */
+            align-items: center;
+            justify-content: center;
             margin-left: auto;
             margin-right: auto;
             margin-top: 20px;
-            box-sizing: border-box; /* Add for consistent sizing */
+            box-sizing: border-box;
+            line-height: 1.2; /* Help with wrapping if needed */
         }
-        /* Add hover effect for standard button */
-         div[data-testid="stButton"] > button:hover {
+        div[data-testid="stButton"] > button:hover {
              background-color: #b71c1c; /* Darker Red */
              color: white;
              cursor: pointer;
          }
-         /* Center the elements vertically somewhat */
          .stApp > div:first-child {
              padding-top: 2vh;
          }
-         /* Ensure block containers center their content */
          div[data-testid="stVerticalBlock"] {
              align-items: center;
          }
@@ -773,12 +772,8 @@ st.markdown("""
 # --- TTS ---
 # (Same robust function as before)
 def text_to_speech(text):
-    if not LEMONFOX_API_KEY:
-        st.error("Cannot generate speech: LEMONFOX_API_KEY is missing.")
-        return None
-    if not text:
-        st.warning("No text description provided to generate speech.")
-        return None
+    if not LEMONFOX_API_KEY: st.error("Cannot generate speech: LEMONFOX_API_KEY is missing."); return None
+    if not text: st.warning("No text description provided to generate speech."); return None
     headers = {"Authorization": f"Bearer {LEMONFOX_API_KEY}", "Content-Type": "application/json"}
     data = {"model": TTS_MODEL, "input": text, "voice": VOICE, "response_format": "mp3"}
     try:
@@ -786,12 +781,8 @@ def text_to_speech(text):
             response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
             response.raise_for_status()
         return response.content
-    except requests.exceptions.RequestException as e:
-        st.error(f"Audio generation failed: {e}")
-        return None
-    except Exception as e:
-        st.error(f"An unexpected error occurred during TTS: {e}")
-        return None
+    except requests.exceptions.RequestException as e: st.error(f"Audio generation failed: {e}"); return None
+    except Exception as e: st.error(f"An unexpected error occurred during TTS: {e}"); return None
 
 # --- State Init ---
 if "mode" not in st.session_state: st.session_state.mode = "camera"
@@ -800,30 +791,22 @@ if "audio_data" not in st.session_state: st.session_state.audio_data = None
 # --- App Logic ---
 if st.session_state.mode == "camera":
     st.info("Tap the video area below to take a picture using the back camera.")
-    image_object = back_camera_input(key="back_cam_final_style")
+    image_object = back_camera_input(key="back_cam_px_height")
     if image_object is not None:
         with st.spinner("Analyzing image and generating audio..."):
             try:
                 image_bytes = image_object.getvalue()
                 base64_image = encode_image_from_bytes(image_bytes)
-                if not base64_image:
-                    st.error("Failed to encode image.")
-                    st.stop()
+                if not base64_image: st.error("Failed to encode image."); st.stop()
                 description = look_at_photo(base64_image, upload=False)
-                if not description or "error" in description.lower():
-                     st.error(f"Image analysis failed or returned an error: {description}")
-                     st.stop()
+                if not description or "error" in description.lower(): st.error(f"Image analysis failed: {description}"); st.stop()
                 audio = text_to_speech(description)
                 if audio:
                     st.session_state.audio_data = audio
                     st.session_state.mode = "result"
                     st.rerun()
-                else:
-                    st.warning("Audio generation failed. Please try taking another picture.")
-                    st.stop()
-            except Exception as e:
-                st.error(f"An error occurred during processing: {e}")
-                st.stop()
+                else: st.warning("Audio generation failed. Please try taking another picture."); st.stop()
+            except Exception as e: st.error(f"An error occurred during processing: {e}"); st.stop()
 
 elif st.session_state.mode == "result":
     if st.session_state.audio_data:
@@ -834,22 +817,23 @@ elif st.session_state.mode == "result":
                 <button id="playAudio" style="
                     background-color: #4CAF50; /* Green */
                     color: white;
-                    /* === Making styles match START OVER === */
+                    /* === Matching START OVER more closely === */
                     font-size: 36px;
-                    padding: 30px; /* Added padding */
+                    padding: 10px; /* Reduced padding slightly */
                     width: 80vw;
                     max-width: 600px;
-                    height: 15vh;
+                    height: 150px; /* USE FIXED PX HEIGHT */
                     border: none;
                     border-radius: 16px;
-                    box-sizing: border-box; /* Added box-sizing */
-                    display: flex; /* Added flex for centering */
-                    align-items: center; /* Added flex for centering */
-                    justify-content: center; /* Added flex for centering */
+                    box-sizing: border-box;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     /* === End matching styles === */
                     margin-bottom: 15px; /* Keep reduced margin */
                     cursor: pointer;
-                    line-height: 1.2; /* Added line-height for potential text wrap */
+                    line-height: 1.2; /* Help text fit */
+                    text-align: center; /* Ensure text centers */
                 ">▶️ PLAY AUDIO</button>
 
                 <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
@@ -860,16 +844,14 @@ elif st.session_state.mode == "result":
                     if (btn && player) {{
                         if (!window.playListenerAttached) {{
                              btn.addEventListener("click", () => {{
-                                console.log("Play button clicked");
-                                if (player.paused) {{ player.play().catch(e => console.error("Audio play failed:", e)); }}
-                                else {{ player.pause(); }}
+                                if (player.paused) {{ player.play().catch(e => console.error("Audio play failed:", e)); }} else {{ player.pause(); }}
                             }});
                             window.playListenerAttached = true;
                         }}
                     }} else {{ console.error("Play button or audio player element not found!"); }}
                 </script>
             </div>
-        """, height=250) # Increased height slightly again due to padding
+        """, height=200) # Adjusted component height (150px button + 15px margin + ~35px for potential player controls if shown/debug)
         # ----------------------------------------------------
     else:
         st.error("Error: Audio data not found for playback.")
