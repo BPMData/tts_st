@@ -710,17 +710,16 @@
 # #          st.rerun()
 
 ####### GPT 4o ATTEMPT *WITH* GEMINI 2.5 REFACTORING FOR BACK CAMERA INPUT
-
 import streamlit as st
-# import base64 # Not directly used in this version's core logic shown
-from image_backend import look_at_photo, encode_image_from_bytes # Assuming these are correct
 import requests
+import base64
+from image_backend import look_at_photo, encode_image_from_bytes # Assuming these are correct
 
 # --- Import the new camera component ---
 from streamlit_back_camera_input import back_camera_input
 # --------------------------------------
 
-# Config
+# --- Config ---
 st.set_page_config(page_title="Camera to Speech", layout="wide")
 LEMONFOX_API_KEY = st.secrets.get("LEMONFOX_API_KEY")
 LEMONFOX_API_URL = "https://api.lemonfox.ai/v1/audio/speech"
@@ -730,16 +729,64 @@ TTS_MODEL = "tts-1"
 # --- Basic Error Checking for Secrets ---
 if not LEMONFOX_API_KEY:
     st.error("🚨 Error: LEMONFOX_API_KEY not found in Streamlit secrets. TTS will fail.")
-    # You might want to add similar checks for any keys needed by image_backend.py
-    # st.stop() # Optionally stop execution if keys are critical
+    # st.stop() # Optionally stop execution if key is critical
 
-# Session state init
-if "mode" not in st.session_state:
-    st.session_state.mode = "camera"
-if "audio_data" not in st.session_state:
-    st.session_state.audio_data = None
+# --- Enlarge Buttons ---
+# Apply CSS for large buttons. Note the comment about stCameraInput styling below.
+st.markdown("""
+    <style>
+        /* CSS for the standard Camera Input Button */
+        /* IMPORTANT: This selector likely WILL NOT style streamlit-back-camera-input */
+        /* as it relies on internal structure/test IDs of st.camera_input */
+        /* and the back_camera_input uses tap-on-video, not a styled button. */
+        div[data-testid="stCameraInput"] button {
+            background-color: #1976D2; /* Blue */
+            color: white;
+            font-size: 36px;
+            padding: 30px 40px;
+            border-radius: 16px;
+            width: 80vw;
+            height: 15vh;
+        }
 
-# TTS function
+        /* CSS for standard st.button widgets */
+        /* This WILL style the 'START OVER' button */
+        div[data-testid="stButton"] > button {
+            background-color: #d32f2f; /* Red */
+            color: white;
+            font-size: 36px;
+            padding: 30px;
+            width: 80vw;  /* Make standard buttons wide */
+            max-width: 600px; /* Add a max-width for very large screens */
+            height: 15vh; /* Make standard buttons tall */
+            border-radius: 16px;
+            display: block; /* Center the button */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* Add hover effect for standard button */
+         div[data-testid="stButton"] > button:hover {
+             background-color: #b71c1c; /* Darker Red */
+             color: white;
+         }
+
+         /* Center the elements vertically somewhat */
+         .stApp > div:first-child {
+             /* display: flex; */ /* Flex can sometimes interfere with component heights */
+             /* flex-direction: column; */
+             /* align-items: center; */
+             padding-top: 2vh; /* Add some padding at the top */
+         }
+         /* Ensure block containers center their content */
+         div[data-testid="stVerticalBlock"] {
+             align-items: center;
+         }
+
+    </style>
+""", unsafe_allow_html=True)
+
+# --- TTS ---
+# (Using the robust version from previous response)
 def text_to_speech(text):
     if not LEMONFOX_API_KEY:
         st.error("Cannot generate speech: LEMONFOX_API_KEY is missing.")
@@ -759,10 +806,11 @@ def text_to_speech(text):
         "response_format": "mp3"
     }
     try:
+        # Spinner context manager for user feedback
         with st.spinner("🔊 Generating audio description..."):
             response = requests.post(LEMONFOX_API_URL, headers=headers, json=data, timeout=60)
             response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-        st.success("✅ Audio generated!")
+        # st.success("✅ Audio generated!") # Optional: Can be too much clutter
         return response.content
     except requests.exceptions.RequestException as e:
         st.error(f"Audio generation failed: {e}")
@@ -771,75 +819,115 @@ def text_to_speech(text):
         st.error(f"An unexpected error occurred during TTS: {e}")
         return None
 
-# Analyze image and generate audio (combined function)
-def analyze_image_and_generate_audio(image_bytes):
-    if not image_bytes:
-        st.error("No image data received.")
-        return None
-    try:
-        with st.spinner("🖼️ Analyzing image..."):
-            # Assuming encode_image_from_bytes handles potential errors
-            base64_image = encode_image_from_bytes(image_bytes)
-            if not base64_image:
-                st.error("Failed to encode image.")
-                return None
+# --- State Init ---
+if "mode" not in st.session_state:
+    st.session_state.mode = "camera"
+if "audio_data" not in st.session_state:
+    st.session_state.audio_data = None
 
-            # Assuming look_at_photo handles potential errors and returns a string or None/empty
-            description = look_at_photo(base64_image, upload=False)
-            if not description or "error" in description.lower(): # Basic check
-                 st.error(f"Image analysis failed or returned an error: {description}")
-                 return None
-        st.success("✅ Image analyzed!")
-
-        # Generate audio from the description
-        return text_to_speech(description)
-
-    except Exception as e:
-        st.error(f"An error occurred during image analysis or encoding: {e}")
-        return None
-
-
-# --- Main flow ---
+# --- App Logic ---
 if st.session_state.mode == "camera":
     st.info("Tap the video area below to take a picture using the back camera.")
     # --- Use the back_camera_input component ---
-    image_object = back_camera_input(key="back_cam") # Added a key for potential state management
+    # The CSS targeting stCameraInput's button likely won't apply here.
+    image_object = back_camera_input(key="back_cam_large_btn_ver")
     # ------------------------------------------
 
     if image_object is not None:
-        # Assuming image_object has a getvalue() method like st.camera_input's result
-        # If it returns a PIL Image, you might need to save it to BytesIO first:
-        # from io import BytesIO
-        # buf = BytesIO()
-        # image_object.save(buf, format="PNG") # Or JPEG
-        # image_bytes = buf.getvalue()
-        # st.session_state.audio_data = analyze_image_and_generate_audio(image_bytes)
+        # Wrap processing in a spinner for better UX
+        with st.spinner("Analyzing image and generating audio..."):
+            try:
+                # --- Assuming getvalue() works directly ---
+                image_bytes = image_object.getvalue()
+                # ------------------------------------------
 
-        # --- Assuming getvalue() works directly ---
-        st.session_state.audio_data = analyze_image_and_generate_audio(image_object.getvalue())
-        # ------------------------------------------
+                # --- Analyze and Generate Audio ---
+                base64_image = encode_image_from_bytes(image_bytes)
+                if not base64_image:
+                    st.error("Failed to encode image.")
+                    # Stay in camera mode if encoding fails
+                    st.stop() # Stop script execution for this run
 
-        if st.session_state.audio_data: # Only switch mode if audio was successfully generated
-            st.session_state.mode = "result"
-            st.rerun()
-        else:
-            # Error messages should be displayed by the analyze/TTS functions
-            # Stay in camera mode to allow retry
-            st.warning("Processing failed. Please try taking another picture.")
+                description = look_at_photo(base64_image, upload=False)
+                if not description or "error" in description.lower(): # Basic check
+                     st.error(f"Image analysis failed or returned an error: {description}")
+                     # Stay in camera mode if analysis fails
+                     st.stop() # Stop script execution for this run
+
+                audio = text_to_speech(description)
+                # ----------------------------------
+
+                if audio: # Proceed only if audio generation was successful
+                    st.session_state.audio_data = audio
+                    st.session_state.mode = "result"
+                    st.rerun() # Rerun to switch to result view
+                else:
+                    # Error messages shown by text_to_speech
+                    # Stay in camera mode to allow retry
+                    st.warning("Audio generation failed. Please try taking another picture.")
+                    st.stop()
+
+            except Exception as e:
+                st.error(f"An error occurred during processing: {e}")
+                # Stay in camera mode on unexpected error
+                st.stop()
 
 
 elif st.session_state.mode == "result":
+    # --- Display Custom HTML Play Button and Hidden Audio Player ---
     if st.session_state.audio_data:
-        st.audio(st.session_state.audio_data, format="audio/mp3")
-    else:
-        st.error("No audio data available to play.") # Should ideally not happen if logic is correct
+        audio_b64 = base64.b64encode(st.session_state.audio_data).decode("utf-8")
+        # This HTML component uses its own inline styles for the green Play button
+        st.components.v1.html(f"""
+            <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                <button id="playAudio" style="
+                    background-color: #4CAF50; /* Green */
+                    color: white;
+                    font-size: 40px;
+                    width: 80vw; /* Use viewport width */
+                    max-width: 600px; /* Add max-width */
+                    height: 15vh; /* Use viewport height */
+                    border: none;
+                    border-radius: 16px;
+                    margin-bottom: 30px;
+                    cursor: pointer;
+                ">▶️ PLAY AUDIO</button>
 
-    if st.button("🔁 Start Over"):
+                <audio id="player" src="data:audio/mp3;base64,{audio_b64}" controls style="display:none; width: 80%; max-width: 600px;"></audio>
+
+                <script>
+                    const btn = document.getElementById("playAudio");
+                    const player = document.getElementById("player");
+                    // Ensure elements exist before adding listener
+                    if (btn && player) {{
+                        // Use a flag to prevent adding listener multiple times if component re-renders weirdly
+                        if (!window.playListenerAttached) {{
+                             btn.addEventListener("click", () => {{
+                                console.log("Play button clicked");
+                                if (player.paused) {{
+                                    player.play().catch(e => console.error("Audio play failed:", e));
+                                }} else {{
+                                    player.pause();
+                                    // player.currentTime = 0; // Optional: uncomment to restart audio on click when playing
+                                }}
+                            }});
+                            window.playListenerAttached = true;
+                            console.log("Play listener attached.");
+                        }}
+                    }} else {{
+                        console.error("Play button or audio player element not found!");
+                    }}
+                </script>
+            </div>
+        """, height=250) # Adjust height based on button/player size + margin
+    else:
+        st.error("Error: Audio data not found for playback.")
+
+    # --- Display Large "START OVER" Button ---
+    # This button will be styled by the div[data-testid="stButton"] > button CSS
+    if st.button("🔄 START OVER"):
         st.session_state.mode = "camera"
         st.session_state.audio_data = None
-        # Clear the camera state indirectly by rerunning (or potentially manipulating key if needed)
+        # Clear the flag for the JS listener when starting over
+        st.components.v1.html("<script>window.playListenerAttached = false;</script>", height=0)
         st.rerun()
-
-# --- Footer (Optional) ---
-st.markdown("---")
-st.caption("Image-to-Speech App (Back Camera Input)")
