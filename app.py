@@ -32,7 +32,7 @@ VOICE_OPTIONS = {
 }
 LEMONFOX_API_URL = "https://api.lemonfox.ai/v1/audio/speech"
 TTS_MODEL = "tts-1"
-MAX_CHAR_LIMIT = 10000
+MAX_CHAR_LIMIT = 30000
 DEFAULT_SOURCE_INFO = "Enter text, upload a file, or use an image."
 
 # Constants for Radio Button Options
