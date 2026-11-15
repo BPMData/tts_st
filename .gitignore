@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env*
+!.env.example
+__pycache__/
+.streamlit/secrets.toml
+
+# Vision bake-off: photos and results stay on this computer
+tools/vision-bakeoff/photos/*
+!tools/vision-bakeoff/photos/README.md
+tools/vision-bakeoff/results/
+
+# Owner's real test photos: personal, never committed
+sample_images/
