@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { createApp } from '../server.ts';
+import { createApp, isProduction } from '../server.ts';
+
+// Production must be detected even when AI Studio's Publish drops NODE_ENV (Cloud Run sets K_SERVICE).
+assert.equal(isProduction({ NODE_ENV: 'production' }), true);
+assert.equal(isProduction({ K_SERVICE: 'allhail' }), true);
+assert.equal(isProduction({ K_SERVICE: 'allhail', NODE_ENV: 'development' }), false);
+assert.equal(isProduction({}), false);
 
 // Exercise the actual built app with native Node type stripping and no API keys.
 const app = await createApp({ production: true });
