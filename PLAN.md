@@ -148,6 +148,8 @@ Speech uses an ordered fallback list, like OverHeard's translators. If one voice
 - Move the Streamlit app to a `streamlit-final` tag and delete it from `main`.
 - **Verify:** it installs from Chrome on a laptop and an Android phone, and opens offline.
 
+Implementation status (2026-11-15): the step 2 foundation is built, with the Streamlit version preserved at `streamlit-final`. Typecheck, unit tests, production build, native Node import and server smoke checks pass locally. Automated desktop and Android-emulated Chrome checks pass for manifest/install eligibility, offline reload and reopening, and keeping API replies out of the cache. Installation on physical devices and screen-reader checks remain to be done by a human. See `README.md` for the commands and checklist.
+
 ### 3. Student mode
 - A full-screen camera with one huge button. Vibrate when the photo is taken and when the description is ready. Speak automatically. Tap anywhere to pause or resume.
 - Speed control. Repeat the last description.

@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+:root {
+  font-family: system-ui, sans-serif;
+  color: #153f35;
+  background: #f7f8f2;
+  font-synthesis: none;
+  font-size: 18px;
+  line-height: 1.65;
+  color-scheme: light dark;
+}
+
+body { min-width: 280px; margin: 0; }
+button, summary { min-height: 48px; }
+button { cursor: pointer; }
+:focus-visible { outline: 4px solid #a54a00; outline-offset: 5px; }
+.status-panel { background: #e6eee5; border-color: #557361; }
+.update-button { color: #fff; background: #153f35; }
+.skip-link { position: fixed; top: 12px; left: 12px; padding: 12px; background: #fff; color: #153f35; z-index: 1; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
+
+@media (prefers-color-scheme: dark) {
+  :root { color: #eef5ed; background: #12221e; }
+  :focus-visible { outline-color: #ffca81; }
+  .status-panel { background: #203c32; border-color: #9bc2ab; }
+  .update-button { background: #c6e4cb; color: #12221e; }
+}
