@@ -1,5 +1,7 @@
 # AllHail
 
+> **This project has moved to [BPMData/AllHail](https://github.com/BPMData/AllHail).** This repo is archived (read-only). It keeps the early history: the planning and model-testing pull requests, and the last version of the old Streamlit app under the [`streamlit-final`](https://github.com/BPMData/tts_st/tree/streamlit-final) tag.
+
 AllHail is an installable web app for blind and low-vision students and their teachers. It will turn photos, documents and typed text into speech, alongside OverBoard, AllAboard and OverHeard.
 
 This branch completes **step 2 of [the rebuild plan](PLAN.md)**: the project foundation. It has an accessible home screen, install instructions, connection announcements and an offline app shell. Camera capture, AI descriptions, document reading and speech come in later steps.
