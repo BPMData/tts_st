@@ -1,0 +1,7 @@
+{
+  "name": "AllHail",
+  "description": "Turns photos, documents and typed text into speech for blind and low-vision students and their teachers. Installable web app; photo descriptions run on the server through OpenRouter.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

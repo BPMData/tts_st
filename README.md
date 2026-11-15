@@ -23,6 +23,16 @@ npm run build
 NODE_ENV=production npm start
 ```
 
+The server serves the built app when `NODE_ENV=production`, or when it runs on Cloud Run (which sets `K_SERVICE`), even if `NODE_ENV` is missing. `NODE_ENV=development` always means the development server.
+
+### Deploying with Google AI Studio
+
+- AI Studio's Publish builds the app, starts it with `node server.ts` on Cloud Run, and can rewrite the service's settings. Anything that must survive a publish belongs in code, not in console settings. That's why production is detected from `K_SERVICE` as well as `NODE_ENV`.
+- Keep `PORT=3000`; don't "fix" it to 8080 (see AllAboard's deployment notes).
+- `metadata.json` names the app and asks for the camera, so AI Studio's preview allows it.
+- Keys go in AI Studio's **Secrets** panel, never in the code: `OPENROUTER_API_KEY` from step 3 onwards. AI Studio adds `GEMINI_API_KEY` by itself; AllHail doesn't use it.
+- Test the camera and installing in the published URL in a full Chrome tab, not in AI Studio's preview pane.
+
 `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0`. Production runs `node server.ts` directly, without a TypeScript loader. `GET /api/health` checks that the server is up. Deployment must serve over HTTPS for installation and offline support; localhost is allowed for development. A phone visiting a laptop's plain HTTP network address cannot use its service worker.
 
 ## Check changes

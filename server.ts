@@ -6,7 +6,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 
-export async function createApp({ production = process.env.NODE_ENV === 'production' } = {}) {
+/**
+ * Serve the built app (not the Vite dev server) when NODE_ENV says production, or when running
+ * on Cloud Run (which always sets K_SERVICE). AI Studio's Publish has dropped NODE_ENV before;
+ * without this, the deploy would try to start Vite, which isn't installed in production.
+ * An explicit NODE_ENV=development still wins, for debugging.
+ */
+export function isProduction(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV === 'production') return true;
+  if (env.NODE_ENV === 'development') return false;
+  return Boolean(env.K_SERVICE);
+}
+
+export async function createApp({ production = isProduction() } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
