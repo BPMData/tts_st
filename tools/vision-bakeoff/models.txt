@@ -1,0 +1,14 @@
+# Candidate vision models on OpenRouter (one id per line; # starts a comment).
+# Add "no-thinking" after an id for models that otherwise think until they run out of room.
+# Prices checked 2026-11-14. "per 1k" is a rough cost for 1,000 photos.
+
+openai/gpt-4o-mini                 # what the old app used: the baseline (~$4.50 per 1k: OpenAI bills images heavily on this one)
+openai/gpt-5-nano                  # ~$0.16 per 1k
+google/gemini-2.5-flash-lite       # ~$0.23 per 1k
+google/gemini-3.5-flash-lite       # ~$0.95 per 1k
+anthropic/claude-haiku-5.5 no-thinking # ~$0.25 per 1k
+qwen/qwen3.7-flash no-thinking     # ~$0.07 per 1k
+qwen/qwen3-vl-30b-a3b-instruct     # ~$0.35 per 1k
+z-ai/glm-5.3-flash                 # ~$0.08 per 1k
+google/gemma-4-26b-a4b-it no-thinking # ~$0.15 per 1k, open model
+mistralai/mistral-small-2603       # ~$0.35 per 1k
